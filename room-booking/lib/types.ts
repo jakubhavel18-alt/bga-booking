@@ -28,6 +28,9 @@ export interface Booking {
   starts_at: string;
   ends_at: string;
   purpose: string | null;
+  // Sdílené appkou vygenerované UUID pro všechny termíny jedné opakované
+  // rezervace (týdně/měsíčně) — NULL u jednorázové rezervace.
+  recurrence_group_id: string | null;
   created_at: string;
   profiles?: { email: string; full_name: string | null } | null;
 }

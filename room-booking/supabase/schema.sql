@@ -21,6 +21,7 @@ create table if not exists public.profiles (
   email text not null,
   full_name text,
   role user_role not null default 'viewer',
+  monthly_hours_limit numeric, -- měkký limit hodin podle smlouvy, NULL = bez limitu
   created_at timestamptz not null default now()
 );
 
@@ -60,9 +61,16 @@ create table if not exists public.bookings (
   starts_at timestamptz not null,
   ends_at timestamptz not null,
   purpose text,
+  -- Sdílené UUID pro všechny termíny jedné opakované rezervace (appka ho
+  -- vygeneruje při vytvoření série) — umožňuje zrušit celou sérii jedním
+  -- klikem. NULL u jednorázové rezervace.
+  recurrence_group_id uuid,
   created_at timestamptz not null default now(),
   constraint valid_range check (ends_at > starts_at)
 );
+
+create index if not exists bookings_recurrence_group_id_idx
+  on public.bookings (recurrence_group_id);
 
 -- Databáze sama odmítne dvě překrývající se rezervace stejné místnosti
 alter table public.bookings drop constraint if exists no_overlapping_bookings;
@@ -84,25 +92,30 @@ alter table public.profiles enable row level security;
 alter table public.rooms enable row level security;
 alter table public.bookings enable row level security;
 
--- Profily: kdokoli přihlášený vidí seznam lidí (kvůli "kdo rezervoval"), role mění jen admin (přes funkci níže)
+-- Profily: přihlášení vidí seznam všech lidí (kvůli "kdo rezervoval" a
+-- Správě). Bez přihlášení je vidět jen jméno/e-mail u lidí, kteří mají
+-- aspoň jednu rezervaci — ne úplný seznam všech založených účtů.
 drop policy if exists "profiles_select" on public.profiles;
 create policy "profiles_select" on public.profiles
-  for select using (auth.uid() is not null);
+  for select using (
+    auth.uid() is not null
+    or exists (select 1 from public.bookings b where b.user_id = profiles.id)
+  );
 
--- Místnosti: číst může kdokoli přihlášený, spravovat jen admin
+-- Místnosti: náhled (Půdorys) je veřejný, i bez přihlášení; spravovat smí jen admin.
 drop policy if exists "rooms_select" on public.rooms;
 create policy "rooms_select" on public.rooms
-  for select using (auth.uid() is not null);
+  for select using (true);
 
 drop policy if exists "rooms_admin_all" on public.rooms;
 create policy "rooms_admin_all" on public.rooms
   for all using (public.current_role() = 'admin')
   with check (public.current_role() = 'admin');
 
--- Rezervace: číst může kdokoli přihlášený (aby bylo vidět obsazenost)
+-- Rezervace: obsazenost je vidět veřejně, i bez přihlášení.
 drop policy if exists "bookings_select" on public.bookings;
 create policy "bookings_select" on public.bookings
-  for select using (auth.uid() is not null);
+  for select using (true);
 
 -- Vytvořit rezervaci může jen booker/admin, a jen sám za sebe
 drop policy if exists "bookings_insert" on public.bookings;
@@ -128,6 +141,18 @@ begin
     raise exception 'Pouze admin může měnit role.';
   end if;
   update public.profiles set role = new_role where id = target_user_id;
+end;
+$$ language plpgsql security definer;
+
+-- Nastavení měsíčního limitu hodin (jen evidenční, appka kvůli němu
+-- nikdy nic neblokuje) — volá se ze Správy, sama ověří, že volající je admin.
+create or replace function public.admin_set_hours_limit(target_user_id uuid, new_limit numeric)
+returns void as $$
+begin
+  if public.current_role() <> 'admin' then
+    raise exception 'Pouze admin může měnit limit hodin.';
+  end if;
+  update public.profiles set monthly_hours_limit = new_limit where id = target_user_id;
 end;
 $$ language plpgsql security definer;
 

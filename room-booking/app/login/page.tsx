@@ -1,8 +1,16 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+// Jen relativní cesta (žádné "//jinydomena.cz" ani "https://…") — ať tenhle
+// parametr nejde zneužít k přesměrování mimo appku.
+function safeNextPath(value: string | null) {
+  if (!value) return "/dashboard";
+  if (!value.startsWith("/") || value.startsWith("//")) return "/dashboard";
+  return value;
+}
 
 type Mode = "login" | "signup" | "forgot";
 
@@ -33,6 +41,14 @@ export default function LoginPage() {
     "idle"
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Kam se má appka vrátit po přihlášení (např. zpátky na konkrétní
+  // místnost, když se sem přišlo z odkazu u anonymního náhledu / z QR).
+  const [nextPath, setNextPath] = useState("/dashboard");
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    setNextPath(safeNextPath(raw));
+  }, []);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -57,7 +73,7 @@ export default function LoginPage() {
         setErrorMsg("Špatný e-mail nebo heslo.");
         return;
       }
-      router.push("/dashboard");
+      router.push(nextPath);
       router.refresh();
       return;
     }

@@ -32,7 +32,14 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isPublic = path === "/login" || path.startsWith("/auth");
+  const isPublic =
+    path === "/login" ||
+    path.startsWith("/auth") ||
+    path === "/" ||
+    path === "/dashboard";
+  // Náhled (Půdorys/Denní přehled) je veřejný i bez přihlášení — přihlášení
+  // je potřeba až na rezervování/rušení (to appka řeší sama v UI) a na
+  // /admin, který tímhle veřejný není.
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

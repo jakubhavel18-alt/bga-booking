@@ -2,7 +2,9 @@
 
 Webová appka na rezervaci 6–15 místností a prostor: jednoduchý půdorys,
 3 úrovně přístupu (admin / rezervující / jen náhled) a přihlášení e-mailem
-a heslem — funguje pro kohokoli, bez Microsoft nebo Google účtu.
+a heslem — funguje pro kohokoli, bez Microsoft nebo Google účtu. Náhled
+(obsazenost, kdo co rezervoval) je veřejný i bez přihlášení — účet je
+potřeba až na samotné vytvoření/zrušení rezervace.
 
 Běží zdarma na **Vercelu** (hosting appky) + **Supabase** (databáze a přihlašování).
 
@@ -117,13 +119,29 @@ Chcete přidat další místnost ručně? Ve **Správě** dole vyplňte formulá
 procentech, 0/0 vlevo nahoře, 100/100 vpravo dole) doladíte podle toho, jak to
 vypadá na Půdorysu.
 
+## Krok 6a — Veřejný náhled bez přihlášení
+
+Appka teď funguje tak, že se **kdokoli s odkazem podívá na Půdorys a Denní
+přehled i bez účtu** (kdo co rezervoval včetně jména/e-mailu je vidět
+veřejně — pokud byste tohle náhodou nechtěli, dejte vědět, dá se to i
+schovat jen pro přihlášené). Rezervovat nebo rušit rezervaci pořád jde
+jen po přihlášení.
+
+Na **novém** projektu tohle appka umí rovnou, není potřeba nic navíc — je
+to součástí `schema.sql` z Kroku 1. Pokud appku provozujete déle a
+`schema.sql` jste spouštěli dřív, spusťte navíc v Supabase → **SQL Editor**
+obsah souboru
+[`supabase/add_public_dashboard_view.sql`](./supabase/add_public_dashboard_view.sql).
+
 ## Krok 6b — Měsíční limit hodin (volitelné, podle smlouvy)
 
-Pokud má někdo ve smlouvě smluvený počet hodin měsíčně:
+Pokud má někdo ve smlouvě smluvený počet hodin měsíčně — na **novém**
+projektu je tohle už součástí `schema.sql`, nic navíc dělat nemusíte. Na
+**existujícím** projektu:
 
 1. V Supabase → **SQL Editor** → **New query** spusťte obsah souboru
    [`supabase/add_monthly_hours_limit.sql`](./supabase/add_monthly_hours_limit.sql)
-   (jednou, stačí na existujícím projektu).
+   (jednou).
 2. Ve **Správě** → sekce **Lidé a práva** teď u každého člověka uvidíte pole
    „Limit hodin/měsíc" — vyplňte a odklikněte mimo pole, uloží se to samo.
    Kdo limit nemá vyplněný, appka ho nijak nesleduje.
@@ -132,6 +150,24 @@ Pokud má někdo ve smlouvě smluvený počet hodin měsíčně:
    nezablokuje**, jen u přečerpaných hodin ukáže „k doúčtování", ať to jde
    podle toho vyfakturovat.
 
+## Krok 6c — Zrušit celou sérii opakované rezervace jedním klikem (POVINNÉ, jakmile appku aktualizujete)
+
+⚠️ Na **existujícím** projektu tohle prosím spusťte hned po nahrání téhle
+verze appky — appka teď při každé (i jednorázové) rezervaci posílá do
+databáze i nové pole `recurrence_group_id`. Dokud sloupec v databázi
+nebude existovat, **nepůjde uložit vůbec žádná nová rezervace** (appka
+ukáže „Rezervaci se nepodařilo uložit").
+
+1. V Supabase → **SQL Editor** → **New query** spusťte obsah souboru
+   [`supabase/add_recurrence_group.sql`](./supabase/add_recurrence_group.sql)
+   (jednou).
+2. Hotovo — rezervace (jednorázové i opakované) zase fungují a u opakovaných
+   navíc přibude tlačítko „Zrušit sérii", které smaže všechny termíny dané
+   série najednou.
+
+Na **novém** projektu je tohle už součástí `schema.sql`, tenhle krok
+netřeba dělat.
+
 ## Krok 7 — Přidat lidem práva
 
 - Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale
@@ -139,6 +175,23 @@ Pokud má někdo ve smlouvě smluvený počet hodin měsíčně:
 - Ve **Správě** → sekce **Lidé a práva** uvidíte každého, kdo se aspoň jednou
   přihlásil, a můžete mu nastavit **Rezervující** (může si sám rezervovat a
   rušit vlastní rezervace) nebo **Admin** (spravuje vše).
+
+## Krok 8 — QR kódy pro last-minute rezervaci od dveří
+
+Ve **Správě** dole je teď sekce **QR kódy pro rezervaci od dveří** — appka
+vygeneruje QR kód pro každou místnost/prostor (funguje hned, nic se nikde
+nemusí nastavovat). Naskenování mobilem otevře appku rovnou na rezervačním
+panelu té konkrétní místnosti a čas „od" má předvyplněný na „teď" — kdo
+místnost potřebuje hned, zvládne rezervaci na pár klepnutí, bez hledání
+místnosti v seznamu.
+
+- Kliknutím na „Otevřít QR" se obrázek otevře v nové záložce — tam ho jde
+  uložit (nebo rovnou vytisknout) a nalepit u dveří.
+- QR kód vzniká přes veřejnou službu `api.qrserver.com` (žádné heslo ani
+  citlivá data se nikam neposílají, jen adresa appky).
+- Kdo QR naskenuje bez účtu, appka mu obsazenost i tak ukáže — teprve na
+  samotné „Zarezervovat" ho appka pošle na přihlášení a po přihlášení ho
+  vrátí přesně zpátky na stejnou místnost.
 
 ## Přihlašování — e-mail a heslo
 
@@ -172,9 +225,41 @@ Pokud má někdo ve smlouvě smluvený počet hodin měsíčně:
   tablet naležato) je to naopak — vizuální půdorys, bez duplicitního seznamu
   pod ním. Denní přehled pod tím se na úzké obrazovce nemačká donekonečna —
   rozjede se vodorovně a dá se v něm posouvat prstem doleva/doprava.
+- **Rezervační panel na telefonu** se otevře rovnou (i po naskenování QR
+  kódu) bez blikání či poskakování stránky, formulář „Nová rezervace" je
+  hned pod názvem místnosti (nemusí se rolovat přes seznam obsazenosti) a
+  hlavička s křížkem na zavření zůstává nahoře i při rolování.
+- **Hlavička appky na telefonu** je jeden úzký řádek s logem a přepínačem
+  ☰ — teprve po klepnutí se pod ním rozbalí odznak role, e-mail, odkazy
+  Správa/Půdorys a Odhlásit. Appka se tak vždy vejde na šířku obrazovky;
+  vodorovně se dá posouvat jen Denní přehled (a širší tabulky ve Správě,
+  v jejich vlastním rámečku) — nikdy celá stránka.
+- **Opakovaná rezervace** — u formuláře „Nová rezervace" jde zvolit
+  „Opakování": každý týden nebo jednou za měsíc, se stejným časem Od–Do,
+  až do zadaného konce (pole „Opakovat do"). Appka založí rezervaci pro
+  každý termín zvlášť (nejvýš 60 najednou, jako pojistka proti překlepu
+  v datu) a napíše, kolik jich vzniklo — pokud je nějaký termín obsazený,
+  ten jeden přeskočí a napíše který, ostatní založí normálně. U každého
+  termínu jde v seznamu „Nadcházející rezervace" zrušit buď jen on sám
+  („Zrušit"), nebo celá série najednou („Zrušit sérii") — stejně tak ve
+  Správě u sekce „Poslední rezervace" tlačítkem „Smazat sérii". Vyžaduje
+  Krok 6c níž.
 - Vše (kdo co smí) je vynucené přímo v databázi (Row Level Security), ne jen
   v zobrazení appky — i kdyby si někdo zkoušel upravovat požadavky napřímo,
   databáze cizí práva neumožní.
+
+### Pokud i po nahrání appka posílá anonymní návštěvníky rovnou na přihlášení
+
+Appka má náhled (Půdorys, Denní přehled) veřejný i bez přihlášení — na to
+slouží soubory `middleware.ts`, `app/page.tsx` a `app/dashboard/page.tsx`.
+Pokud po nahrání zkoušíte appku v anonymním okně a pořád vás to hodí na
+`/login`, nejčastější příčina je, že se do GitHubu nenahrál úplně každý
+soubor z balíčku (typicky právě `middleware.ts`, protože leží přímo v
+kořeni složky appky, ne v žádné podsložce — snadno se přehlédne). Zkontrolujte
+na GitHubu, že soubor `middleware.ts` existuje a obsahuje `"/dashboard"` v
+seznamu veřejných cest, a ve Vercelu na záložce **Deployments**, že poslední
+nasazení odpovídá poslednímu commitu na GitHubu. Pak zkuste anonymní okno
+znovu s natvrdo obnovenou stránkou (Ctrl/Cmd+Shift+R).
 
 ## Náklady a limity zdarma úrovní
 

@@ -23,6 +23,12 @@ export default function AdminClient({
   const [rooms, setRooms] = useState(initialRooms);
   const [profiles, setProfiles] = useState(initialProfiles);
   const [bookings, setBookings] = useState(initialBookings);
+  // Adresa appky zjistíme až v prohlížeči (na serveru při vykreslení
+  // stránky window neexistuje) — potřebujeme ji pro odkaz/QR kód místnosti.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
   const [newRoom, setNewRoom] = useState({
     name: "",
     type: "meeting_room" as RoomType,
@@ -173,12 +179,20 @@ export default function AdminClient({
     await refresh();
   }
 
+  async function deleteBookingSeries(groupId: string) {
+    if (!confirm("Zrušit všechny termíny téhle opakované rezervace?")) return;
+    const supabase = createClient();
+    await supabase.from("bookings").delete().eq("recurrence_group_id", groupId);
+    await refresh();
+  }
+
   return (
     <>
       <Header profile={profile} />
       <div className="admin-wrap">
         <section className="admin-section">
           <h2 className="font-display">Místnosti a prostory</h2>
+          <div className="table-scroll">
           <table className="admin-table">
             <thead>
               <tr>
@@ -244,6 +258,7 @@ export default function AdminClient({
               ))}
             </tbody>
           </table>
+          </div>
 
           <div className="new-room-form">
             <div className="field">
@@ -304,7 +319,51 @@ export default function AdminClient({
         </section>
 
         <section className="admin-section">
+          <h2 className="font-display">QR kódy pro rezervaci od dveří</h2>
+          <p style={{ fontSize: 13, color: "#55617a", marginBottom: 16 }}>
+            Vytiskněte a nalepte u konkrétní místnosti. Naskenování otevře
+            appku rovnou na rezervaci téhle místnosti a předvyplní čas „teď" —
+            pro last-minute rezervaci z telefonu tak stačí pár klepnutí.
+          </p>
+          <div className="qr-grid">
+            {rooms.map((room) => {
+              const roomUrl = origin ? `${origin}/dashboard?room=${room.id}` : "";
+              const qrSrc = roomUrl
+                ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(roomUrl)}`
+                : "";
+              return (
+                <div className="qr-card" key={room.id}>
+                  <div className="qr-card-name">{room.name}</div>
+                  {qrSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={qrSrc} alt={`QR kód – ${room.name}`} width={160} height={160} />
+                  ) : (
+                    <div style={{ width: 160, height: 160 }} />
+                  )}
+                  {roomUrl && (
+                    <a
+                      className="qr-card-link"
+                      href={qrSrc}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Otevřít QR (uložte obrázek)
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+            {rooms.length === 0 && (
+              <p style={{ fontSize: 13, color: "#55617a" }}>
+                Nejdřív přidejte místnosti výše.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section className="admin-section">
           <h2 className="font-display">Lidé a práva</h2>
+          <div className="table-scroll">
           <table className="admin-table">
             <thead>
               <tr>
@@ -341,6 +400,7 @@ export default function AdminClient({
               ))}
             </tbody>
           </table>
+          </div>
           <p style={{ fontSize: 12, color: "#55617a", marginTop: 8 }}>
             Noví lidé se objeví v tomto seznamu, jakmile se poprvé přihlásí
             e-mailem — do té doby v appce neexistují. Limit hodin je jen
@@ -372,6 +432,7 @@ export default function AdminClient({
               v sekci „Lidé a práva".
             </p>
           ) : (
+            <div className="table-scroll">
             <table className="admin-table">
               <thead>
                 <tr>
@@ -405,11 +466,13 @@ export default function AdminClient({
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </section>
 
         <section className="admin-section">
           <h2 className="font-display">Poslední rezervace</h2>
+          <div className="table-scroll">
           <table className="admin-table">
             <thead>
               <tr>
@@ -424,22 +487,36 @@ export default function AdminClient({
               {bookings.map((b) => (
                 <tr key={b.id}>
                   <td>{rooms.find((r) => r.id === b.room_id)?.name ?? "—"}</td>
-                  <td>{b.profiles?.full_name || b.profiles?.email}</td>
+                  <td>
+                    {b.profiles?.full_name || b.profiles?.email}
+                    {b.recurrence_group_id && (
+                      <span style={{ color: "#55617a", fontSize: 11 }}> · opakuje se</span>
+                    )}
+                  </td>
                   <td className="mono">
                     {new Date(b.starts_at).toLocaleString("cs-CZ")}
                   </td>
                   <td className="mono">
                     {new Date(b.ends_at).toLocaleString("cs-CZ")}
                   </td>
-                  <td>
+                  <td style={{ whiteSpace: "nowrap" }}>
                     <button className="btn danger" onClick={() => deleteBooking(b.id)}>
                       Smazat
-                    </button>
+                    </button>{" "}
+                    {b.recurrence_group_id && (
+                      <button
+                        className="btn danger"
+                        onClick={() => deleteBookingSeries(b.recurrence_group_id as string)}
+                      >
+                        Smazat sérii
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       </div>
     </>
