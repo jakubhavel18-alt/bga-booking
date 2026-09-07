@@ -62,11 +62,16 @@ export default function DashboardClient({
   initialRooms,
   initialBookings,
   initialSelectedRoomId = null,
+  restrictedRoomIds = null,
 }: {
   profile: Profile | null;
   initialRooms: Room[];
   initialBookings: Booking[];
   initialSelectedRoomId?: string | null;
+  // NULL = appka ukazuje všechny místnosti/prostory (výchozí). Pole =
+  // uživatelova skupina místností omezuje, co vidí (např. jen zasedačky
+  // + Velký sál, bez ostatního coworku).
+  restrictedRoomIds?: string[] | null;
 }) {
   const [rooms, setRooms] = useState(initialRooms);
   const [bookings, setBookings] = useState(initialBookings);
@@ -107,10 +112,19 @@ export default function DashboardClient({
   const canBook = profile?.role === "booker" || profile?.role === "admin";
   const now = Date.now();
 
-  const meetingRooms = rooms.filter((r) => r.type === "meeting_room");
-  const spaceRooms = rooms.filter((r) => r.type !== "meeting_room");
+  // Skupina místností filtruje, co se vůbec zobrazí — `rooms` (celý
+  // seznam) se dál používá jen pro číslování R-06 apod., ať kódy
+  // místností zůstanou stejné bez ohledu na to, kdo se dívá.
+  const visibleRooms = useMemo(() => {
+    if (!restrictedRoomIds) return rooms;
+    const set = new Set(restrictedRoomIds);
+    return rooms.filter((r) => set.has(r.id));
+  }, [rooms, restrictedRoomIds]);
 
-  const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
+  const meetingRooms = visibleRooms.filter((r) => r.type === "meeting_room");
+  const spaceRooms = visibleRooms.filter((r) => r.type !== "meeting_room");
+
+  const selectedRoom = visibleRooms.find((r) => r.id === selectedRoomId) ?? null;
 
   const roomBookings = useMemo(() => {
     if (!selectedRoomId) return [];
@@ -259,7 +273,7 @@ export default function DashboardClient({
 
       <div className="floorplan-wrap">
         <div className="floorplan">
-          {rooms.map((room) => {
+          {visibleRooms.map((room) => {
             const occupied = isOccupiedNow(room.id);
             return (
               <button
@@ -292,9 +306,11 @@ export default function DashboardClient({
                 </div>
               </button>
             ))}
-            {rooms.length === 0 && (
+            {visibleRooms.length === 0 && (
               <p style={{ color: "#55617a", fontSize: 14 }}>
-                Zatím tu nejsou žádné místnosti. Admin je může přidat v sekci Správa.
+                {rooms.length === 0
+                  ? "Zatím tu nejsou žádné místnosti. Admin je může přidat v sekci Správa."
+                  : "Pro váš účet zatím nejsou přiřazené žádné místnosti — ozvěte se správci."}
               </p>
             )}
           </div>
@@ -321,7 +337,7 @@ export default function DashboardClient({
         </div>
       </div>
 
-      <DayOverview rooms={rooms} />
+      <DayOverview rooms={rooms} visibleRoomIds={restrictedRoomIds} />
 
       {selectedRoom && (
         <div className="panel-overlay" onClick={() => setSelectedRoomId(null)}>

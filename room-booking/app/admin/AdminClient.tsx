@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
-import type { Profile, Room, Booking, UserRole, RoomType } from "@/lib/types";
+import type { Profile, Room, Booking, UserRole, RoomType, RoomGroup } from "@/lib/types";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -14,15 +14,22 @@ export default function AdminClient({
   initialRooms,
   initialProfiles,
   initialBookings,
+  initialRoomGroups,
+  initialRoomGroupRooms,
 }: {
   profile: Profile;
   initialRooms: Room[];
   initialProfiles: Profile[];
   initialBookings: Booking[];
+  initialRoomGroups: RoomGroup[];
+  initialRoomGroupRooms: { group_id: string; room_id: string }[];
 }) {
   const [rooms, setRooms] = useState(initialRooms);
   const [profiles, setProfiles] = useState(initialProfiles);
   const [bookings, setBookings] = useState(initialBookings);
+  const [roomGroups, setRoomGroups] = useState(initialRoomGroups);
+  const [roomGroupRooms, setRoomGroupRooms] = useState(initialRoomGroupRooms);
+  const [newGroupName, setNewGroupName] = useState("");
   // Adresa appky zjistíme až v prohlížeči (na serveru při vykreslení
   // stránky window neexistuje) — potřebujeme ji pro odkaz/QR kód místnosti.
   const [origin, setOrigin] = useState("");
@@ -40,9 +47,13 @@ export default function AdminClient({
 
   const [hoursMonth, setHoursMonth] = useState(currentMonth);
   const [monthlyBookings, setMonthlyBookings] = useState<
-    { user_id: string; starts_at: string; ends_at: string }[]
+    { id: string; user_id: string; room_id: string; starts_at: string; ends_at: string; purpose: string | null }[]
   >([]);
   const [hoursLoading, setHoursLoading] = useState(false);
+  // Které uživatele má rozkliknuté "Zobrazit rezervace" v Čerpání hodin.
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  // Filtr "Kdo" nad tabulkou Poslední rezervace.
+  const [bookingsFilterUserId, setBookingsFilterUserId] = useState<string>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -54,9 +65,10 @@ export default function AdminClient({
       const end = new Date(y, m, 1).toISOString(); // m je 1-indexované -> 1. den následujícího měsíce
       const { data } = await supabase
         .from("bookings")
-        .select("user_id, starts_at, ends_at")
+        .select("id, user_id, room_id, starts_at, ends_at, purpose")
         .gte("starts_at", start)
-        .lt("starts_at", end);
+        .lt("starts_at", end)
+        .order("starts_at");
       if (!cancelled) {
         setMonthlyBookings(data ?? []);
         setHoursLoading(false);
@@ -68,15 +80,27 @@ export default function AdminClient({
     };
   }, [hoursMonth]);
 
+  // Limit hodin je jen pro zasedačky — rezervace cowork prostorů se do
+  // vyčerpaného limitu nepočítají.
+  const meetingRoomIds = useMemo(
+    () => new Set(rooms.filter((r) => r.type === "meeting_room").map((r) => r.id)),
+    [rooms]
+  );
+
   const usageByUser = useMemo(() => {
     const map = new Map<string, number>();
     for (const b of monthlyBookings) {
+      if (!meetingRoomIds.has(b.room_id)) continue;
       const hours =
         (new Date(b.ends_at).getTime() - new Date(b.starts_at).getTime()) / 3600000;
       map.set(b.user_id, (map.get(b.user_id) ?? 0) + hours);
     }
     return map;
-  }, [monthlyBookings]);
+  }, [monthlyBookings, meetingRoomIds]);
+
+  function roomName(id: string) {
+    return rooms.find((r) => r.id === id)?.name ?? "—";
+  }
 
   function updateHoursLimitLocal(id: string, value: string) {
     setProfiles((prev) =>
@@ -103,7 +127,7 @@ export default function AdminClient({
 
   async function refresh() {
     const supabase = createClient();
-    const [{ data: r }, { data: p }, { data: b }] = await Promise.all([
+    const [{ data: r }, { data: p }, { data: b }, { data: g }, { data: gr }] = await Promise.all([
       supabase.from("rooms").select("*").order("name"),
       supabase.from("profiles").select("*").order("email"),
       supabase
@@ -111,10 +135,54 @@ export default function AdminClient({
         .select("*, profiles(email, full_name)")
         .order("starts_at", { ascending: false })
         .limit(100),
+      supabase.from("room_groups").select("*").order("name"),
+      supabase.from("room_group_rooms").select("group_id, room_id"),
     ]);
     if (r) setRooms(r);
     if (p) setProfiles(p);
     if (b) setBookings(b as unknown as Booking[]);
+    if (g) setRoomGroups(g);
+    if (gr) setRoomGroupRooms(gr);
+  }
+
+  async function addRoomGroup() {
+    if (!newGroupName.trim()) return;
+    setBusy(true);
+    const supabase = createClient();
+    await supabase.from("room_groups").insert({ name: newGroupName.trim() });
+    setNewGroupName("");
+    setBusy(false);
+    await refresh();
+  }
+
+  async function deleteRoomGroup(id: string) {
+    if (!confirm("Smazat tuhle skupinu? Lidem s touhle skupinou appka pak zase ukáže vše.")) return;
+    const supabase = createClient();
+    await supabase.from("room_groups").delete().eq("id", id);
+    await refresh();
+  }
+
+  async function toggleRoomInGroup(groupId: string, roomId: string, include: boolean) {
+    const supabase = createClient();
+    if (include) {
+      await supabase.from("room_group_rooms").insert({ group_id: groupId, room_id: roomId });
+    } else {
+      await supabase
+        .from("room_group_rooms")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("room_id", roomId);
+    }
+    await refresh();
+  }
+
+  async function setUserRoomGroup(userId: string, groupId: string | null) {
+    const supabase = createClient();
+    await supabase.rpc("admin_set_room_group", {
+      target_user_id: userId,
+      new_group_id: groupId,
+    });
+    await refresh();
   }
 
   function updateRoomField(id: string, field: keyof Room, value: string) {
@@ -370,6 +438,7 @@ export default function AdminClient({
                 <th>E-mail</th>
                 <th>Role</th>
                 <th>Limit hodin/měsíc</th>
+                <th>Skupina místností</th>
               </tr>
             </thead>
             <tbody>
@@ -396,6 +465,19 @@ export default function AdminClient({
                       onBlur={() => saveHoursLimit(p)}
                     />
                   </td>
+                  <td>
+                    <select
+                      value={p.room_group_id ?? ""}
+                      onChange={(e) => setUserRoomGroup(p.id, e.target.value || null)}
+                    >
+                      <option value="">Vše (výchozí)</option>
+                      {roomGroups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -405,12 +487,93 @@ export default function AdminClient({
             Noví lidé se objeví v tomto seznamu, jakmile se poprvé přihlásí
             e-mailem — do té doby v appce neexistují. Limit hodin je jen
             evidenční (měkký) — appka nikomu rezervaci kvůli němu nezablokuje,
-            jen ukáže přečerpání níž v sekci Čerpání hodin.
+            jen ukáže přečerpání níž v sekci Čerpání hodin. Skupina místností
+            omezuje, co danému člověku appka vůbec ukáže na Půdorysu a
+            v Denním přehledu — skupiny se zakládají a nastavují níž v sekci
+            „Skupiny místností". Admin vidí vždycky vše bez ohledu na skupinu.
           </p>
         </section>
 
         <section className="admin-section">
+          <h2 className="font-display">Skupiny místností</h2>
+          <p style={{ fontSize: 13, color: "#55617a", marginBottom: 16 }}>
+            Pro lidi, kteří nemají vidět všechno — např. skupina „Fixní
+            místo" pro lidi, co mají svůj stálý stůl a cowork prostory pro ně
+            nedávají smysl, jen zasedačky a Velký sál. Kdo nemá skupinu
+            přiřazenou (viz „Lidé a práva" výš), appka mu dál ukazuje úplně
+            vše — beze změny.
+          </p>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <input
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              placeholder="např. Fixní místo"
+            />
+            <button className="btn primary" disabled={busy} onClick={addRoomGroup}>
+              Přidat skupinu
+            </button>
+          </div>
+          {roomGroups.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#55617a" }}>
+              Zatím žádná skupina — bez ní appka všem ukazuje vše.
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Místnost</th>
+                    {roomGroups.map((g) => (
+                      <th key={g.id}>
+                        {g.name}{" "}
+                        <button
+                          className="btn danger"
+                          style={{ padding: "2px 6px", fontSize: 11 }}
+                          onClick={() => deleteRoomGroup(g.id)}
+                        >
+                          smazat
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rooms.map((room) => (
+                    <tr key={room.id}>
+                      <td>
+                        {room.name}{" "}
+                        <span style={{ color: "#55617a", fontSize: 11 }}>
+                          ({room.type === "meeting_room" ? "zasedačka" : "prostor"})
+                        </span>
+                      </td>
+                      {roomGroups.map((g) => {
+                        const included = roomGroupRooms.some(
+                          (gr) => gr.group_id === g.id && gr.room_id === room.id
+                        );
+                        return (
+                          <td key={g.id} style={{ textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={included}
+                              onChange={(e) => toggleRoomInGroup(g.id, room.id, e.target.checked)}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="admin-section">
           <h2 className="font-display">Čerpání hodin</h2>
+          <p style={{ fontSize: 12, color: "#55617a", marginTop: -4, marginBottom: 12 }}>
+            Počítají se jen rezervace zasedaček — cowork a další prostory se
+            do limitu nepočítají.
+          </p>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 12, color: "#55617a", marginRight: 8 }}>
               Měsíc
@@ -440,6 +603,7 @@ export default function AdminClient({
                   <th>Limit (h)</th>
                   <th>Vyčerpáno (h)</th>
                   <th>Stav</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -447,21 +611,65 @@ export default function AdminClient({
                   const used = usageByUser.get(p.id) ?? 0;
                   const limit = Number(p.monthly_hours_limit);
                   const over = Math.max(0, used - limit);
+                  const userBookingsThisMonth = monthlyBookings
+                    .filter((b) => b.user_id === p.id)
+                    .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+                  const isExpanded = expandedUserId === p.id;
                   return (
-                    <tr key={p.id}>
-                      <td>{p.email}</td>
-                      <td className="mono">{limit}</td>
-                      <td className="mono">{used.toFixed(1)}</td>
-                      <td>
-                        {over > 0 ? (
-                          <span style={{ color: "#b8721e", fontWeight: 600 }}>
-                            +{over.toFixed(1)} h k doúčtování
-                          </span>
-                        ) : (
-                          <span style={{ color: "#55617a" }}>v limitu</span>
-                        )}
-                      </td>
-                    </tr>
+                    <Fragment key={p.id}>
+                      <tr>
+                        <td>{p.email}</td>
+                        <td className="mono">{limit}</td>
+                        <td className="mono">{used.toFixed(1)}</td>
+                        <td>
+                          {over > 0 ? (
+                            <span style={{ color: "#b8721e", fontWeight: 600 }}>
+                              +{over.toFixed(1)} h k doúčtování
+                            </span>
+                          ) : (
+                            <span style={{ color: "#55617a" }}>v limitu</span>
+                          )}
+                        </td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <button
+                            className="btn"
+                            onClick={() => setExpandedUserId(isExpanded ? null : p.id)}
+                          >
+                            {isExpanded ? "Skrýt" : "Zobrazit rezervace"}
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={5} style={{ background: "#f7f5ef" }}>
+                            {userBookingsThisMonth.length === 0 ? (
+                              <p style={{ fontSize: 13, color: "#55617a", margin: 0 }}>
+                                Tenhle měsíc nemá žádnou rezervaci.
+                              </p>
+                            ) : (
+                              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+                                {userBookingsThisMonth.map((b) => (
+                                  <li key={b.id}>
+                                    <span className="mono">
+                                      {new Date(b.starts_at).toLocaleString("cs-CZ")}–
+                                      {new Date(b.ends_at).toLocaleTimeString("cs-CZ", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </span>{" "}
+                                    · {roomName(b.room_id)}
+                                    {b.purpose ? ` — ${b.purpose}` : ""}
+                                    {!meetingRoomIds.has(b.room_id) && (
+                                      <span style={{ color: "#55617a" }}> (nepočítá se do limitu)</span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -472,6 +680,25 @@ export default function AdminClient({
 
         <section className="admin-section">
           <h2 className="font-display">Poslední rezervace</h2>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, color: "#55617a", marginRight: 8 }}>
+              Kdo
+            </label>
+            <select
+              value={bookingsFilterUserId}
+              onChange={(e) => setBookingsFilterUserId(e.target.value)}
+            >
+              <option value="all">Všichni</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name || p.email}
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: 12, color: "#55617a", marginLeft: 8 }}>
+              (posledních 100 rezervací celkem, ne jen u tohohle člověka)
+            </span>
+          </div>
           <div className="table-scroll">
           <table className="admin-table">
             <thead>
@@ -484,7 +711,9 @@ export default function AdminClient({
               </tr>
             </thead>
             <tbody>
-              {bookings.map((b) => (
+              {bookings
+                .filter((b) => bookingsFilterUserId === "all" || b.user_id === bookingsFilterUserId)
+                .map((b) => (
                 <tr key={b.id}>
                   <td>{rooms.find((r) => r.id === b.room_id)?.name ?? "—"}</td>
                   <td>

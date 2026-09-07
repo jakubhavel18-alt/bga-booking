@@ -168,6 +168,31 @@ ukáže „Rezervaci se nepodařilo uložit").
 Na **novém** projektu je tohle už součástí `schema.sql`, tenhle krok
 netřeba dělat.
 
+## Krok 6d — Skupiny místností (kdo vidí co) — nepovinné
+
+Appka teď umí omezit, jaké místnosti/prostory daný člověk vůbec uvidí —
+třeba skupina „Fixní místo" pro lidi se stálým stolem, kterým cowork
+prostory nedávají smysl (jen zasedačky a Velký sál). Kdo skupinu nemá
+přiřazenou, appka mu dál ukazuje úplně vše, přesně jako dosud — tenhle
+krok je čistě volitelný.
+
+Na **existujícím** projektu spusťte jednou v Supabase → **SQL Editor**
+obsah souboru
+[`supabase/add_room_groups.sql`](./supabase/add_room_groups.sql). Na
+**novém** projektu je to už součástí `schema.sql`.
+
+Nastavení pak celé probíhá ve **Správě**:
+
+1. V sekci **Skupiny místností** založte skupinu (např. „Fixní místo") a
+   zaškrtněte, které místnosti/prostory do ní patří (co v ní lidé uvidí).
+2. V sekci **Lidé a práva** u daného člověka vyberte tu skupinu ve sloupci
+   „Skupina místností".
+
+Je to jen na úrovni zobrazení appky (Půdorys, seznam, Denní přehled) — ne
+vynucené v databázi jako role/rezervace, takže někdo s přímým odkazem na
+konkrétní místnost (třeba starý QR kód) se k ní pořád dostane. Kdyby bylo
+potřeba tohle vynutit i natvrdo, dá se to doplnit.
+
 ## Krok 7 — Přidat lidem práva
 
 - Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale
@@ -214,8 +239,10 @@ místnosti v seznamu.
 - **Půdorys** — klikněte na místnost, otevře se panel s nadcházejícími
   rezervacemi a (pokud máte právo) formulářem na novou rezervaci.
 - **Denní přehled** pod půdorysem ukazuje všechny místnosti najednou na jedné
-  časové ose pro zvolený den (šipky nebo datum přepnou den) — kdo je kde a
-  kdy, na jeden pohled, bez proklikávání jednotlivých místností.
+  časové ose pro zvolený den (šipky ◀ ▶, tlačítko „Dnes" nebo datum přepnou
+  den) — kdo je kde a kdy, na jeden pohled, bez proklikávání jednotlivých
+  místností. Tlačítka ◀ „Dnes" ▶ mají na telefonu větší dotykovou plochu
+  (min. 44×44 px), ať se do nich spolehlivě trefí prst.
 - Databáze sama hlídá, aby se dvě rezervace stejné místnosti nepřekrývaly —
   při kolizi appka ukáže hlášku a rezervaci neuloží.
 - Rezervaci může zrušit její autor, nebo admin za kohokoli.
@@ -244,9 +271,24 @@ místnosti v seznamu.
   („Zrušit"), nebo celá série najednou („Zrušit sérii") — stejně tak ve
   Správě u sekce „Poslední rezervace" tlačítkem „Smazat sérii". Vyžaduje
   Krok 6c níž.
+- **Skupiny místností** — komu je přiřazená (viz Krok 6d), appka mu na
+  Půdorysu, v seznamu i v Denním přehledu ukáže jen místnosti/prostory z
+  jeho skupiny. Bez přiřazené skupiny appka pořád ukazuje úplně vše.
+- **Limit hodin** se počítá jen z rezervací zasedaček — cowork a další
+  prostory se do vyčerpaného limitu nezapočítávají.
 - Vše (kdo co smí) je vynucené přímo v databázi (Row Level Security), ne jen
   v zobrazení appky — i kdyby si někdo zkoušel upravovat požadavky napřímo,
   databáze cizí práva neumožní.
+
+### Přehled toho, co si kdo rezervoval
+
+- Ve **Správě** → **Čerpání hodin** klikněte u kohokoli na „Zobrazit
+  rezervace" — rozbalí se seznam všech jeho rezervací za zvolený měsíc
+  (i těch, co se do limitu nepočítají — u nich appka napíše „nepočítá se
+  do limitu").
+- Ve **Správě** → **Poslední rezervace** je nahoře filtr „Kdo" — vybere se
+  konkrétní člověk a tabulka (posledních 100 rezervací celkem) se
+  zobrazí jen za něj.
 
 ### Pokud i po nahrání appka posílá anonymní návštěvníky rovnou na přihlášení
 

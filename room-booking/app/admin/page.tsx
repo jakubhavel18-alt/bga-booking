@@ -29,6 +29,13 @@ export default async function AdminPage() {
     .select("*, profiles(email, full_name)")
     .order("starts_at", { ascending: false })
     .limit(100);
+  const { data: roomGroups } = await supabase
+    .from("room_groups")
+    .select("*")
+    .order("name");
+  const { data: roomGroupRooms } = await supabase
+    .from("room_group_rooms")
+    .select("group_id, room_id");
 
   return (
     <AdminClient
@@ -36,6 +43,8 @@ export default async function AdminPage() {
       initialRooms={rooms ?? []}
       initialProfiles={profiles ?? []}
       initialBookings={bookings ?? []}
+      initialRoomGroups={roomGroups ?? []}
+      initialRoomGroupRooms={roomGroupRooms ?? []}
     />
   );
 }

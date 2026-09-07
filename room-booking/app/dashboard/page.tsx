@@ -37,12 +37,28 @@ export default async function DashboardPage({
     .gte("ends_at", since)
     .order("starts_at");
 
+  // Skupina místností: má-li člověk (ne admin) přiřazenou skupinu, appka
+  // mu ukáže jen místnosti v ní (např. "Fixní místo" = jen zasedačky a
+  // Velký sál, bez ostatního coworku). NULL = bez omezení, vidí vše.
+  let restrictedRoomIds: string[] | null = null;
+  if (profile && profile.role !== "admin" && profile.room_group_id) {
+    const { data: groupRooms } = await supabase
+      .from("room_group_rooms")
+      .select("room_id")
+      .eq("group_id", profile.room_group_id);
+    restrictedRoomIds = (groupRooms ?? []).map((g) => g.room_id);
+  }
+
   // QR kód u dveří vede na /dashboard?room=<id> — panel dané místnosti se
   // otevře už v serverem vykresleném HTML, ať appka na telefonu po
   // naskenování nejdřív neblikne celým půdorysem a pak neskočí do panelu,
   // ale rovnou naběhne na jednu obrazovku s rezervací.
   const initialSelectedRoomId =
-    roomParam && (rooms ?? []).some((r) => r.id === roomParam) ? roomParam : null;
+    roomParam &&
+    (rooms ?? []).some((r) => r.id === roomParam) &&
+    (!restrictedRoomIds || restrictedRoomIds.includes(roomParam))
+      ? roomParam
+      : null;
 
   return (
     <DashboardClient
@@ -50,6 +66,7 @@ export default async function DashboardPage({
       initialRooms={rooms ?? []}
       initialBookings={bookings ?? []}
       initialSelectedRoomId={initialSelectedRoomId}
+      restrictedRoomIds={restrictedRoomIds}
     />
   );
 }

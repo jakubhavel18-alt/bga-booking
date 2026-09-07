@@ -7,6 +7,16 @@ export interface Profile {
   full_name: string | null;
   role: UserRole;
   monthly_hours_limit: number | null;
+  // NULL = vidí všechny místnosti/prostory (výchozí). Nastavená skupina =
+  // appka mu ukáže jen místnosti přiřazené do téhle skupiny (např. "Fixní
+  // místo" = jen zasedačky + Velký sál, bez ostatního coworku).
+  room_group_id: string | null;
+  created_at: string;
+}
+
+export interface RoomGroup {
+  id: string;
+  name: string;
   created_at: string;
 }
 

@@ -81,6 +81,24 @@ alter table public.bookings
     tstzrange(starts_at, ends_at) with &&
   );
 
+-- ---------- Skupiny místností (omezit, co která skupina lidí vidí) ----------
+create table if not exists public.room_groups (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+-- Které místnosti/prostory patří do dané skupiny (co uvidí lidé v ní).
+create table if not exists public.room_group_rooms (
+  group_id uuid not null references public.room_groups(id) on delete cascade,
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  primary key (group_id, room_id)
+);
+
+-- NULL = bez omezení (vidí vše, jako dosud).
+alter table public.profiles
+  add column if not exists room_group_id uuid references public.room_groups(id) on delete set null;
+
 -- ---------- Pomocná funkce: role přihlášeného uživatele ----------
 create or replace function public.current_role()
 returns user_role as $$
@@ -91,6 +109,8 @@ $$ language sql stable security definer;
 alter table public.profiles enable row level security;
 alter table public.rooms enable row level security;
 alter table public.bookings enable row level security;
+alter table public.room_groups enable row level security;
+alter table public.room_group_rooms enable row level security;
 
 -- Profily: přihlášení vidí seznam všech lidí (kvůli "kdo rezervoval" a
 -- Správě). Bez přihlášení je vidět jen jméno/e-mail u lidí, kteří mají
@@ -132,6 +152,26 @@ create policy "bookings_delete" on public.bookings
     auth.uid() = user_id or public.current_role() = 'admin'
   );
 
+-- Náhled skupin je veřejný (appka podle nich filtruje, co komu ukázat) —
+-- žádná citlivá data v tom nejsou, jen názvy skupin a přiřazení místností.
+drop policy if exists "room_groups_select" on public.room_groups;
+create policy "room_groups_select" on public.room_groups
+  for select using (true);
+
+drop policy if exists "room_group_rooms_select" on public.room_group_rooms;
+create policy "room_group_rooms_select" on public.room_group_rooms
+  for select using (true);
+
+drop policy if exists "room_groups_admin_all" on public.room_groups;
+create policy "room_groups_admin_all" on public.room_groups
+  for all using (public.current_role() = 'admin')
+  with check (public.current_role() = 'admin');
+
+drop policy if exists "room_group_rooms_admin_all" on public.room_group_rooms;
+create policy "room_group_rooms_admin_all" on public.room_group_rooms
+  for all using (public.current_role() = 'admin')
+  with check (public.current_role() = 'admin');
+
 -- ---------- Funkce pro adminy: změna role uživatele ----------
 -- Volá se z appky (Admin sekce), sama si ověří, že volající je admin.
 create or replace function public.admin_set_role(target_user_id uuid, new_role user_role)
@@ -153,6 +193,18 @@ begin
     raise exception 'Pouze admin může měnit limit hodin.';
   end if;
   update public.profiles set monthly_hours_limit = new_limit where id = target_user_id;
+end;
+$$ language plpgsql security definer;
+
+-- Nastavení skupiny místností uživateli — volá se ze Správy, sama ověří,
+-- že volající je admin.
+create or replace function public.admin_set_room_group(target_user_id uuid, new_group_id uuid)
+returns void as $$
+begin
+  if public.current_role() <> 'admin' then
+    raise exception 'Pouze admin může měnit skupinu místností.';
+  end if;
+  update public.profiles set room_group_id = new_group_id where id = target_user_id;
 end;
 $$ language plpgsql security definer;
 

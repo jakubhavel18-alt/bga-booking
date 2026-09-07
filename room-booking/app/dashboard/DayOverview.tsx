@@ -23,7 +23,17 @@ function fmtTime(iso: string) {
   });
 }
 
-export default function DayOverview({ rooms }: { rooms: Room[] }) {
+export default function DayOverview({
+  rooms,
+  visibleRoomIds = null,
+}: {
+  rooms: Room[];
+  // NULL = appka zobrazí všechny řádky (výchozí). Pole = uživatelova
+  // skupina místností omezuje, které řádky se vůbec zobrazí — kódy
+  // (R-06 apod.) se ale pořád počítají z plného seznamu `rooms`, ať
+  // sedí s tím, co appka ukazuje jinde (Půdorys).
+  visibleRoomIds?: string[] | null;
+}) {
   const [date, setDate] = useState(todayIso());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,16 +85,16 @@ export default function DayOverview({ rooms }: { rooms: Room[] }) {
       <div className="overview-header">
         <h2 className="font-display">Denní přehled — kdo, kde, kdy</h2>
         <div className="overview-nav">
-          <button className="btn" onClick={() => shiftDay(-1)} aria-label="Předchozí den">
+          <button className="btn overview-nav-btn" onClick={() => shiftDay(-1)} aria-label="Předchozí den">
             ◀
           </button>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          <button className="btn" onClick={() => setDate(todayIso())}>
+          <button className="btn overview-nav-btn" onClick={() => setDate(todayIso())}>
             Dnes
           </button>
-          <button className="btn" onClick={() => shiftDay(1)} aria-label="Další den">
+          <button className="btn overview-nav-btn" onClick={() => shiftDay(1)} aria-label="Další den">
             ▶
           </button>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
       </div>
 
@@ -104,7 +114,7 @@ export default function DayOverview({ rooms }: { rooms: Room[] }) {
           </div>
         </div>
 
-        {rooms.map((room) => {
+        {(visibleRoomIds ? rooms.filter((r) => visibleRoomIds.includes(r.id)) : rooms).map((room) => {
           const roomBookings = bookings.filter((b) => b.room_id === room.id);
           return (
             <div className="overview-row" key={room.id}>
@@ -136,9 +146,11 @@ export default function DayOverview({ rooms }: { rooms: Room[] }) {
           );
         })}
 
-        {rooms.length === 0 && (
+        {(visibleRoomIds ? rooms.filter((r) => visibleRoomIds.includes(r.id)) : rooms).length === 0 && (
           <p style={{ color: "#55617a", fontSize: 14, padding: "12px 16px" }}>
-            Zatím nejsou žádné místnosti.
+            {rooms.length === 0
+              ? "Zatím nejsou žádné místnosti."
+              : "Pro váš účet zatím nejsou přiřazené žádné místnosti."}
           </p>
         )}
       </div>
