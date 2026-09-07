@@ -477,6 +477,30 @@ button {
   }
 }
 
+/* Denní přehled na mobilu: štítek místnosti se zúží a časová osa se
+   nemačká donekonečna, ale rolluje se vodorovně ve svém vlastním rámečku. */
+@media (max-width: 720px) {
+  .overview-wrap {
+    padding: 8px 12px 32px;
+  }
+
+  .overview-grid {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .overview-hours,
+  .overview-row {
+    min-width: 620px;
+  }
+
+  .overview-row-label {
+    width: 110px;
+    padding: 8px;
+    font-size: 12px;
+  }
+}
+
 .room-list-card {
   border: 1px solid #d7dce6;
   border-radius: 4px;

@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
 import type { Profile, Room, Booking, UserRole, RoomType } from "@/lib/types";
+
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
 
 export default function AdminClient({
   profile,
@@ -27,6 +31,69 @@ export default function AdminClient({
     pos_y: "50",
   });
   const [busy, setBusy] = useState(false);
+
+  const [hoursMonth, setHoursMonth] = useState(currentMonth);
+  const [monthlyBookings, setMonthlyBookings] = useState<
+    { user_id: string; starts_at: string; ends_at: string }[]
+  >([]);
+  const [hoursLoading, setHoursLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMonth() {
+      setHoursLoading(true);
+      const supabase = createClient();
+      const start = new Date(`${hoursMonth}-01T00:00:00`).toISOString();
+      const [y, m] = hoursMonth.split("-").map(Number);
+      const end = new Date(y, m, 1).toISOString(); // m je 1-indexované -> 1. den následujícího měsíce
+      const { data } = await supabase
+        .from("bookings")
+        .select("user_id, starts_at, ends_at")
+        .gte("starts_at", start)
+        .lt("starts_at", end);
+      if (!cancelled) {
+        setMonthlyBookings(data ?? []);
+        setHoursLoading(false);
+      }
+    }
+    loadMonth();
+    return () => {
+      cancelled = true;
+    };
+  }, [hoursMonth]);
+
+  const usageByUser = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const b of monthlyBookings) {
+      const hours =
+        (new Date(b.ends_at).getTime() - new Date(b.starts_at).getTime()) / 3600000;
+      map.set(b.user_id, (map.get(b.user_id) ?? 0) + hours);
+    }
+    return map;
+  }, [monthlyBookings]);
+
+  function updateHoursLimitLocal(id: string, value: string) {
+    setProfiles((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? { ...p, monthly_hours_limit: value === "" ? null : Number(value) }
+          : p
+      )
+    );
+  }
+
+  async function saveHoursLimit(p: Profile) {
+    const supabase = createClient();
+    await supabase.rpc("admin_set_hours_limit", {
+      target_user_id: p.id,
+      new_limit: p.monthly_hours_limit,
+    });
+    await refresh();
+  }
+
+  const usersWithLimit = profiles.filter(
+    (p) => p.monthly_hours_limit !== null && p.monthly_hours_limit !== undefined
+  );
 
   async function refresh() {
     const supabase = createClient();
@@ -243,6 +310,7 @@ export default function AdminClient({
               <tr>
                 <th>E-mail</th>
                 <th>Role</th>
+                <th>Limit hodin/měsíc</th>
               </tr>
             </thead>
             <tbody>
@@ -259,14 +327,85 @@ export default function AdminClient({
                       <option value="admin">Admin</option>
                     </select>
                   </td>
+                  <td>
+                    <input
+                      type="number"
+                      style={{ width: 70 }}
+                      value={p.monthly_hours_limit ?? ""}
+                      placeholder="bez limitu"
+                      onChange={(e) => updateHoursLimitLocal(p.id, e.target.value)}
+                      onBlur={() => saveHoursLimit(p)}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p style={{ fontSize: 12, color: "#55617a", marginTop: 8 }}>
             Noví lidé se objeví v tomto seznamu, jakmile se poprvé přihlásí
-            e-mailem — do té doby v appce neexistují.
+            e-mailem — do té doby v appce neexistují. Limit hodin je jen
+            evidenční (měkký) — appka nikomu rezervaci kvůli němu nezablokuje,
+            jen ukáže přečerpání níž v sekci Čerpání hodin.
           </p>
+        </section>
+
+        <section className="admin-section">
+          <h2 className="font-display">Čerpání hodin</h2>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, color: "#55617a", marginRight: 8 }}>
+              Měsíc
+            </label>
+            <input
+              type="month"
+              value={hoursMonth}
+              onChange={(e) => setHoursMonth(e.target.value)}
+            />
+            {hoursLoading && (
+              <span style={{ fontSize: 12, color: "#55617a", marginLeft: 8 }}>
+                Načítám…
+              </span>
+            )}
+          </div>
+          {usersWithLimit.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#55617a" }}>
+              Zatím nikdo nemá nastavený měsíční limit hodin — nastavte ho výš
+              v sekci „Lidé a práva".
+            </p>
+          ) : (
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>E-mail</th>
+                  <th>Limit (h)</th>
+                  <th>Vyčerpáno (h)</th>
+                  <th>Stav</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersWithLimit.map((p) => {
+                  const used = usageByUser.get(p.id) ?? 0;
+                  const limit = Number(p.monthly_hours_limit);
+                  const over = Math.max(0, used - limit);
+                  return (
+                    <tr key={p.id}>
+                      <td>{p.email}</td>
+                      <td className="mono">{limit}</td>
+                      <td className="mono">{used.toFixed(1)}</td>
+                      <td>
+                        {over > 0 ? (
+                          <span style={{ color: "#b8721e", fontWeight: 600 }}>
+                            +{over.toFixed(1)} h k doúčtování
+                          </span>
+                        ) : (
+                          <span style={{ color: "#55617a" }}>v limitu</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </section>
 
         <section className="admin-section">

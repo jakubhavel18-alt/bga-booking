@@ -117,6 +117,21 @@ Chcete přidat další místnost ručně? Ve **Správě** dole vyplňte formulá
 procentech, 0/0 vlevo nahoře, 100/100 vpravo dole) doladíte podle toho, jak to
 vypadá na Půdorysu.
 
+## Krok 6b — Měsíční limit hodin (volitelné, podle smlouvy)
+
+Pokud má někdo ve smlouvě smluvený počet hodin měsíčně:
+
+1. V Supabase → **SQL Editor** → **New query** spusťte obsah souboru
+   [`supabase/add_monthly_hours_limit.sql`](./supabase/add_monthly_hours_limit.sql)
+   (jednou, stačí na existujícím projektu).
+2. Ve **Správě** → sekce **Lidé a práva** teď u každého člověka uvidíte pole
+   „Limit hodin/měsíc" — vyplňte a odklikněte mimo pole, uloží se to samo.
+   Kdo limit nemá vyplněný, appka ho nijak nesleduje.
+3. Sekce **Čerpání hodin** níž ukáže, kolik kdo se svým limitem za zvolený
+   měsíc vyčerpal. Je to jen evidenční — **appka nikomu kvůli limitu rezervaci
+   nezablokuje**, jen u přečerpaných hodin ukáže „k doúčtování", ať to jde
+   podle toho vyfakturovat.
+
 ## Krok 7 — Přidat lidem práva
 
 - Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale
@@ -155,7 +170,8 @@ vypadá na Půdorysu.
   seznam — zasedačky rovnou vypsané, cowork a ostatní prostory schované za
   rozklikávacím „Cowork a další prostory". Na širší obrazovce (počítač,
   tablet naležato) je to naopak — vizuální půdorys, bez duplicitního seznamu
-  pod ním.
+  pod ním. Denní přehled pod tím se na úzké obrazovce nemačká donekonečna —
+  rozjede se vodorovně a dá se v něm posouvat prstem doleva/doprava.
 - Vše (kdo co smí) je vynucené přímo v databázi (Row Level Security), ne jen
   v zobrazení appky — i kdyby si někdo zkoušel upravovat požadavky napřímo,
   databáze cizí práva neumožní.

@@ -6,6 +6,7 @@ export interface Profile {
   email: string;
   full_name: string | null;
   role: UserRole;
+  monthly_hours_limit: number | null;
   created_at: string;
 }
 
