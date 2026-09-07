@@ -36,6 +36,10 @@ export default async function AdminPage() {
   const { data: roomGroupRooms } = await supabase
     .from("room_group_rooms")
     .select("group_id, room_id");
+  const { data: labels } = await supabase
+    .from("floorplan_labels")
+    .select("*")
+    .order("created_at");
 
   return (
     <AdminClient
@@ -45,6 +49,7 @@ export default async function AdminPage() {
       initialBookings={bookings ?? []}
       initialRoomGroups={roomGroups ?? []}
       initialRoomGroupRooms={roomGroupRooms ?? []}
+      initialLabels={labels ?? []}
     />
   );
 }

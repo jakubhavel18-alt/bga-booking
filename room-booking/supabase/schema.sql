@@ -99,6 +99,15 @@ create table if not exists public.room_group_rooms (
 alter table public.profiles
   add column if not exists room_group_id uuid references public.room_groups(id) on delete set null;
 
+-- ---------- Popisky na půdorysu (text bez rezervace, např. "Recepce") ----------
+create table if not exists public.floorplan_labels (
+  id uuid primary key default uuid_generate_v4(),
+  text text not null,
+  pos_x numeric not null default 50, -- pozice na půdorysu, 0-100 %
+  pos_y numeric not null default 50,
+  created_at timestamptz not null default now()
+);
+
 -- ---------- Pomocná funkce: role přihlášeného uživatele ----------
 create or replace function public.current_role()
 returns user_role as $$
@@ -111,6 +120,7 @@ alter table public.rooms enable row level security;
 alter table public.bookings enable row level security;
 alter table public.room_groups enable row level security;
 alter table public.room_group_rooms enable row level security;
+alter table public.floorplan_labels enable row level security;
 
 -- Profily: přihlášení vidí seznam všech lidí (kvůli "kdo rezervoval" a
 -- Správě). Bez přihlášení je vidět jen jméno/e-mail u lidí, kteří mají
@@ -169,6 +179,16 @@ create policy "room_groups_admin_all" on public.room_groups
 
 drop policy if exists "room_group_rooms_admin_all" on public.room_group_rooms;
 create policy "room_group_rooms_admin_all" on public.room_group_rooms
+  for all using (public.current_role() = 'admin')
+  with check (public.current_role() = 'admin');
+
+-- Náhled popisků je veřejný, i bez přihlášení (jsou i na veřejném Půdorysu).
+drop policy if exists "floorplan_labels_select" on public.floorplan_labels;
+create policy "floorplan_labels_select" on public.floorplan_labels
+  for select using (true);
+
+drop policy if exists "floorplan_labels_admin_all" on public.floorplan_labels;
+create policy "floorplan_labels_admin_all" on public.floorplan_labels
   for all using (public.current_role() = 'admin')
   with check (public.current_role() = 'admin');
 

@@ -1,9 +1,18 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
-import type { Profile, Room, Booking, UserRole, RoomType, RoomGroup } from "@/lib/types";
+import type {
+  Profile,
+  Room,
+  Booking,
+  UserRole,
+  RoomType,
+  RoomGroup,
+  FloorplanLabel,
+} from "@/lib/types";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -16,6 +25,7 @@ export default function AdminClient({
   initialBookings,
   initialRoomGroups,
   initialRoomGroupRooms,
+  initialLabels,
 }: {
   profile: Profile;
   initialRooms: Room[];
@@ -23,12 +33,15 @@ export default function AdminClient({
   initialBookings: Booking[];
   initialRoomGroups: RoomGroup[];
   initialRoomGroupRooms: { group_id: string; room_id: string }[];
+  initialLabels: FloorplanLabel[];
 }) {
   const [rooms, setRooms] = useState(initialRooms);
   const [profiles, setProfiles] = useState(initialProfiles);
   const [bookings, setBookings] = useState(initialBookings);
   const [roomGroups, setRoomGroups] = useState(initialRoomGroups);
   const [roomGroupRooms, setRoomGroupRooms] = useState(initialRoomGroupRooms);
+  const [labels, setLabels] = useState(initialLabels);
+  const [newLabelText, setNewLabelText] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   // Adresa appky zjistíme až v prohlížeči (na serveru při vykreslení
   // stránky window neexistuje) — potřebujeme ji pro odkaz/QR kód místnosti.
@@ -102,6 +115,112 @@ export default function AdminClient({
     return rooms.find((r) => r.id === id)?.name ?? "—";
   }
 
+  // ---------- Půdorys — přetažením myší/prstem ----------
+  // Refy drží vždy nejaktuálnější rooms/labels, aby handler pointerup (ten
+  // se zaregistruje jen jednou na pointerdown) neukládal do Supabase starou
+  // pozici ze zastaralého closure, ale tu poslední z tažení.
+  const floorplanEditorRef = useRef<HTMLDivElement>(null);
+  const roomsRef = useRef(rooms);
+  useEffect(() => {
+    roomsRef.current = rooms;
+  }, [rooms]);
+  const labelsRef = useRef(labels);
+  useEffect(() => {
+    labelsRef.current = labels;
+  }, [labels]);
+  const draggingRef = useRef<{ kind: "room" | "label"; id: string } | null>(null);
+
+  function clampPct(v: number) {
+    return Math.min(100, Math.max(0, v));
+  }
+
+  function posFromPointer(e: ReactPointerEvent) {
+    const el = floorplanEditorRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    return {
+      x: clampPct(((e.clientX - rect.left) / rect.width) * 100),
+      y: clampPct(((e.clientY - rect.top) / rect.height) * 100),
+    };
+  }
+
+  function handleDragStart(
+    e: ReactPointerEvent<HTMLElement>,
+    kind: "room" | "label",
+    id: string
+  ) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    draggingRef.current = { kind, id };
+  }
+
+  function handleDragMove(e: ReactPointerEvent<HTMLElement>) {
+    const dragging = draggingRef.current;
+    if (!dragging) return;
+    const pos = posFromPointer(e);
+    if (!pos) return;
+    if (dragging.kind === "room") {
+      setRooms((prev) =>
+        prev.map((r) => (r.id === dragging.id ? { ...r, pos_x: pos.x, pos_y: pos.y } : r))
+      );
+    } else {
+      setLabels((prev) =>
+        prev.map((l) => (l.id === dragging.id ? { ...l, pos_x: pos.x, pos_y: pos.y } : l))
+      );
+    }
+  }
+
+  async function handleDragEnd(e: ReactPointerEvent<HTMLElement>) {
+    const dragging = draggingRef.current;
+    if (!dragging) return;
+    draggingRef.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    const supabase = createClient();
+    if (dragging.kind === "room") {
+      const room = roomsRef.current.find((r) => r.id === dragging.id);
+      if (room) {
+        await supabase
+          .from("rooms")
+          .update({ pos_x: room.pos_x, pos_y: room.pos_y })
+          .eq("id", room.id);
+      }
+    } else {
+      const label = labelsRef.current.find((l) => l.id === dragging.id);
+      if (label) {
+        await supabase
+          .from("floorplan_labels")
+          .update({ pos_x: label.pos_x, pos_y: label.pos_y })
+          .eq("id", label.id);
+      }
+    }
+  }
+
+  function updateLabelText(id: string, text: string) {
+    setLabels((prev) => prev.map((l) => (l.id === id ? { ...l, text } : l)));
+  }
+
+  async function saveLabelText(label: FloorplanLabel) {
+    const supabase = createClient();
+    await supabase.from("floorplan_labels").update({ text: label.text }).eq("id", label.id);
+  }
+
+  async function addLabel() {
+    if (!newLabelText.trim()) return;
+    setBusy(true);
+    const supabase = createClient();
+    await supabase
+      .from("floorplan_labels")
+      .insert({ text: newLabelText.trim(), pos_x: 50, pos_y: 50 });
+    setNewLabelText("");
+    setBusy(false);
+    await refresh();
+  }
+
+  async function deleteLabel(id: string) {
+    const supabase = createClient();
+    await supabase.from("floorplan_labels").delete().eq("id", id);
+    await refresh();
+  }
+
   function updateHoursLimitLocal(id: string, value: string) {
     setProfiles((prev) =>
       prev.map((p) =>
@@ -127,22 +246,25 @@ export default function AdminClient({
 
   async function refresh() {
     const supabase = createClient();
-    const [{ data: r }, { data: p }, { data: b }, { data: g }, { data: gr }] = await Promise.all([
-      supabase.from("rooms").select("*").order("name"),
-      supabase.from("profiles").select("*").order("email"),
-      supabase
-        .from("bookings")
-        .select("*, profiles(email, full_name)")
-        .order("starts_at", { ascending: false })
-        .limit(100),
-      supabase.from("room_groups").select("*").order("name"),
-      supabase.from("room_group_rooms").select("group_id, room_id"),
-    ]);
+    const [{ data: r }, { data: p }, { data: b }, { data: g }, { data: gr }, { data: l }] =
+      await Promise.all([
+        supabase.from("rooms").select("*").order("name"),
+        supabase.from("profiles").select("*").order("email"),
+        supabase
+          .from("bookings")
+          .select("*, profiles(email, full_name)")
+          .order("starts_at", { ascending: false })
+          .limit(100),
+        supabase.from("room_groups").select("*").order("name"),
+        supabase.from("room_group_rooms").select("group_id, room_id"),
+        supabase.from("floorplan_labels").select("*").order("created_at"),
+      ]);
     if (r) setRooms(r);
     if (p) setProfiles(p);
     if (b) setBookings(b as unknown as Booking[]);
     if (g) setRoomGroups(g);
     if (gr) setRoomGroupRooms(gr);
+    if (l) setLabels(l);
   }
 
   async function addRoomGroup() {
@@ -384,6 +506,98 @@ export default function AdminClient({
             zleva doprava a shora dolů). Vyzkoušejte na Půdorysu a hodnoty
             doladíte.
           </p>
+        </section>
+
+        <section className="admin-section">
+          <h2 className="font-display">Půdorys — rozmístění</h2>
+          <p style={{ fontSize: 13, color: "#55617a", marginBottom: 16 }}>
+            Přetáhněte místnost nebo popisek myší (na telefonu prstem) přímo
+            na místo v půdorysu — pozice se uloží hned po puštění. Popisky
+            slouží jen jako volný text bez rezervace (např. „Recepce",
+            „Kuchyňka", „WC").
+          </p>
+          <div
+            ref={floorplanEditorRef}
+            className="floorplan admin-floorplan-editor"
+            onPointerMove={handleDragMove}
+            onPointerUp={handleDragEnd}
+            onPointerCancel={handleDragEnd}
+          >
+            {rooms.map((room) => (
+              <div
+                key={room.id}
+                className={`room-box admin-drag${room.type === "space" ? " space" : ""}`}
+                style={{ left: `${room.pos_x}%`, top: `${room.pos_y}%` }}
+                onPointerDown={(e) => handleDragStart(e, "room", room.id)}
+              >
+                <span className="name">{room.name}</span>
+              </div>
+            ))}
+            {labels.map((label) => (
+              <div
+                key={label.id}
+                className="floorplan-label admin-drag-label"
+                style={{ left: `${label.pos_x}%`, top: `${label.pos_y}%` }}
+                onPointerDown={(e) => handleDragStart(e, "label", label.id)}
+              >
+                {label.text || "(bez textu)"}
+              </div>
+            ))}
+          </div>
+
+          <div className="table-scroll" style={{ marginTop: 16 }}>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Text popisku</th>
+                  <th>Poloha X %</th>
+                  <th>Poloha Y %</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {labels.map((label) => (
+                  <tr key={label.id}>
+                    <td>
+                      <input
+                        value={label.text}
+                        onChange={(e) => updateLabelText(label.id, e.target.value)}
+                        onBlur={() => saveLabelText(label)}
+                      />
+                    </td>
+                    <td className="mono">{Math.round(label.pos_x)}</td>
+                    <td className="mono">{Math.round(label.pos_y)}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <button className="btn danger" onClick={() => deleteLabel(label.id)}>
+                        Smazat
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {labels.length === 0 && (
+                  <tr>
+                    <td colSpan={4} style={{ color: "#55617a" }}>
+                      Zatím žádný popisek.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="new-room-form" style={{ marginTop: 12 }}>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Nový popisek</label>
+              <input
+                value={newLabelText}
+                onChange={(e) => setNewLabelText(e.target.value)}
+                placeholder="např. Recepce"
+              />
+            </div>
+            <button className="btn primary" disabled={busy} onClick={addLabel}>
+              Přidat popisek
+            </button>
+          </div>
         </section>
 
         <section className="admin-section">

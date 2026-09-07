@@ -29,6 +29,11 @@ export default async function DashboardPage({
     .select("*")
     .order("name");
 
+  const { data: labels } = await supabase
+    .from("floorplan_labels")
+    .select("*")
+    .order("created_at");
+
   // Rezervace od včerejška dál stačí (minulé si appka po straně odfiltruje)
   const since = new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString();
   const { data: bookings } = await supabase
@@ -67,6 +72,7 @@ export default async function DashboardPage({
       initialBookings={bookings ?? []}
       initialSelectedRoomId={initialSelectedRoomId}
       restrictedRoomIds={restrictedRoomIds}
+      initialLabels={labels ?? []}
     />
   );
 }

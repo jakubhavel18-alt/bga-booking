@@ -193,6 +193,31 @@ vynucené v databázi jako role/rezervace, takže někdo s přímým odkazem na
 konkrétní místnost (třeba starý QR kód) se k ní pořád dostane. Kdyby bylo
 potřeba tohle vynutit i natvrdo, dá se to doplnit.
 
+## Krok 6e — Popisky a přetahování na půdorysu (volitelné)
+
+Appka teď umí na půdorys přidat i volný text bez rezervace (např.
+„Recepce", „Kuchyňka", „WC") a v admin sekci se místnosti i popisky dají
+přesouvat přímo přetažením myší/prstem místo ručního přepisování čísel X/Y.
+
+Na **existujícím** projektu spusťte jednou v Supabase → **SQL Editor**
+obsah souboru
+[`supabase/add_floorplan_labels.sql`](./supabase/add_floorplan_labels.sql).
+Na **novém** projektu je to už součástí `schema.sql`.
+
+Ve **Správě** přibyla sekce **Půdorys — rozmístění**:
+
+1. Novou sekci najdete hned pod „Místnosti a prostory".
+2. Nový popisek přidáte dole přes „+ Nový popisek" — objeví se uprostřed
+   půdorysu.
+3. Místnost i popisek přetáhnete myší (na telefonu/tabletu prstem) přímo
+   na požadované místo — pozice se uloží hned po puštění, není potřeba nic
+   dalšího ukládat.
+4. Text popisku jde přejmenovat v tabulce pod půdorysem, smazat jde tam
+   taky.
+
+Popisky se zobrazují i veřejně na Půdorysu v appce (jen jako text, nejde
+na ně kliknout ani rezervovat).
+
 ## Krok 7 — Přidat lidem práva
 
 - Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale

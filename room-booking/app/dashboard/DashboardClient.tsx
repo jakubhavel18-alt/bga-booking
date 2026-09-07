@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
 import DayOverview from "./DayOverview";
-import type { Profile, Room, Booking } from "@/lib/types";
+import type { Profile, Room, Booking, FloorplanLabel } from "@/lib/types";
 
 // Zaokrouhlí čas nahoru na nejbližších 5 minut — pro "rezervovat od teď".
 function roundedTime(date: Date) {
@@ -63,6 +63,7 @@ export default function DashboardClient({
   initialBookings,
   initialSelectedRoomId = null,
   restrictedRoomIds = null,
+  initialLabels = [],
 }: {
   profile: Profile | null;
   initialRooms: Room[];
@@ -72,9 +73,11 @@ export default function DashboardClient({
   // uživatelova skupina místností omezuje, co vidí (např. jen zasedačky
   // + Velký sál, bez ostatního coworku).
   restrictedRoomIds?: string[] | null;
+  initialLabels?: FloorplanLabel[];
 }) {
   const [rooms, setRooms] = useState(initialRooms);
   const [bookings, setBookings] = useState(initialBookings);
+  const [labels, setLabels] = useState(initialLabels);
   // QR kód u místnosti vede na /dashboard?room=<id> — panel se otevře už
   // z prvního vykreslení (initialSelectedRoomId přijde ze serveru), ať se
   // po naskenování na telefonu nic neblýskne ani neskočí.
@@ -290,6 +293,15 @@ export default function DashboardClient({
               </button>
             );
           })}
+          {labels.map((label) => (
+            <span
+              key={label.id}
+              className="floorplan-label"
+              style={{ left: `${label.pos_x}%`, top: `${label.pos_y}%` }}
+            >
+              {label.text}
+            </span>
+          ))}
         </div>
 
         <div className="room-list-mobile">

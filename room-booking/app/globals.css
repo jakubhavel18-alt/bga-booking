@@ -375,6 +375,50 @@ button {
   background: #b8721e;
 }
 
+/* Volné popisky na půdorysu (např. "Recepce", "Kuchyňka") — jen text,
+   nejde na ně kliknout ani rezervovat. */
+.floorplan-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: #55617a;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Admin editor pro rozmístění na půdorysu — místnosti a popisky jdou
+   přetáhnout myší/prstem. touch-action: none je nutné, jinak si dotyk na
+   mobilu/tabletu vezme prohlížeč jako scroll stránky místo tažení prvku. */
+.admin-floorplan-editor {
+  touch-action: none;
+}
+
+.room-box.admin-drag {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.room-box.admin-drag:active {
+  cursor: grabbing;
+}
+
+.floorplan-label.admin-drag-label {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px dashed #b7bfcf;
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+
+.floorplan-label.admin-drag-label:active {
+  cursor: grabbing;
+}
+
 /* ---------- Day overview (shared timeline) ---------- */
 .overview-wrap {
   padding: 8px 24px 40px;

@@ -20,6 +20,14 @@ export interface RoomGroup {
   created_at: string;
 }
 
+export interface FloorplanLabel {
+  id: string;
+  text: string;
+  pos_x: number;
+  pos_y: number;
+  created_at: string;
+}
+
 export interface Room {
   id: string;
   name: string;
