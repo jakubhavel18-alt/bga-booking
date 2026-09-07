@@ -48,6 +48,9 @@ export default function DashboardClient({
   const canBook = profile?.role === "booker" || profile?.role === "admin";
   const now = Date.now();
 
+  const meetingRooms = rooms.filter((r) => r.type === "meeting_room");
+  const spaceRooms = rooms.filter((r) => r.type !== "meeting_room");
+
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
 
   const roomBookings = useMemo(() => {
@@ -150,25 +153,45 @@ export default function DashboardClient({
           })}
         </div>
 
-        <div className="room-list">
-          {rooms.map((room) => (
-            <button
-              key={room.id}
-              className="room-list-card"
-              onClick={() => setSelectedRoomId(room.id)}
-            >
-              <span className="code">
-                {roomCode(rooms, room)} · {room.type === "meeting_room" ? "zasedačka" : "prostor"}
-              </span>
-              <div className="name">
-                {isOccupiedNow(room.id) ? "🔶" : "🟢"} {room.name}
+        <div className="room-list-mobile">
+          <div className="room-list">
+            {meetingRooms.map((room) => (
+              <button
+                key={room.id}
+                className="room-list-card"
+                onClick={() => setSelectedRoomId(room.id)}
+              >
+                <span className="code">{roomCode(rooms, room)} · zasedačka</span>
+                <div className="name">
+                  {isOccupiedNow(room.id) ? "🔶" : "🟢"} {room.name}
+                </div>
+              </button>
+            ))}
+            {rooms.length === 0 && (
+              <p style={{ color: "#55617a", fontSize: 14 }}>
+                Zatím tu nejsou žádné místnosti. Admin je může přidat v sekci Správa.
+              </p>
+            )}
+          </div>
+
+          {spaceRooms.length > 0 && (
+            <details className="room-spaces">
+              <summary>Cowork a další prostory ({spaceRooms.length})</summary>
+              <div className="room-list">
+                {spaceRooms.map((room) => (
+                  <button
+                    key={room.id}
+                    className="room-list-card"
+                    onClick={() => setSelectedRoomId(room.id)}
+                  >
+                    <span className="code">{roomCode(rooms, room)} · prostor</span>
+                    <div className="name">
+                      {isOccupiedNow(room.id) ? "🔶" : "🟢"} {room.name}
+                    </div>
+                  </button>
+                ))}
               </div>
-            </button>
-          ))}
-          {rooms.length === 0 && (
-            <p style={{ color: "#55617a", fontSize: 14 }}>
-              Zatím tu nejsou žádné místnosti. Admin je může přidat v sekci Správa.
-            </p>
+            </details>
           )}
         </div>
       </div>

@@ -136,6 +136,24 @@ button {
   color: #16233d;
 }
 
+.auth-switch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.auth-switch button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2b5fcc;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* ---------- App header ---------- */
 .app-header {
   display: flex;
@@ -408,12 +426,55 @@ button {
   text-overflow: ellipsis;
 }
 
-/* ---------- Room list (mobile / accessible fallback) ---------- */
+/* ---------- Room list (mobile) ---------- */
 .room-list {
   margin-top: 24px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
+}
+
+.room-spaces {
+  margin-top: 16px;
+}
+
+.room-spaces summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2b5fcc;
+  padding: 8px 0;
+  list-style: none;
+}
+
+.room-spaces summary::-webkit-details-marker {
+  display: none;
+}
+
+.room-spaces summary::before {
+  content: "▸ ";
+}
+
+.room-spaces[open] summary::before {
+  content: "▾ ";
+}
+
+.room-spaces .room-list {
+  margin-top: 12px;
+}
+
+/* Na desktopu ukazujeme půdorys, seznam schováme.
+   Na úzké obrazovce naopak — půdorys se nevejde čitelně. */
+@media (min-width: 721px) {
+  .floorplan-wrap .room-list-mobile {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .floorplan-wrap .floorplan {
+    display: none;
+  }
 }
 
 .room-list-card {

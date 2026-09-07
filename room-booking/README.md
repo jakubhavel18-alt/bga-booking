@@ -1,8 +1,8 @@
 # Rezervace místností
 
 Webová appka na rezervaci 6–15 místností a prostor: jednoduchý půdorys,
-3 úrovně přístupu (admin / rezervující / jen náhled) a přihlášení e-mailem —
-funguje pro kohokoli, bez Microsoft nebo Google účtu.
+3 úrovně přístupu (admin / rezervující / jen náhled) a přihlášení e-mailem
+a heslem — funguje pro kohokoli, bez Microsoft nebo Google účtu.
 
 Běží zdarma na **Vercelu** (hosting appky) + **Supabase** (databáze a přihlašování).
 
@@ -33,8 +33,11 @@ přihlásíte i do zbylých dvou.
    projektu, zkopírujte celý jeho obsah, vložte do editoru a klikněte **Run**.
    Tím vzniknou tabulky pro místnosti, rezervace a role.
 6. Vlevo v menu **Authentication** → **Providers** → ujistěte se, že **Email**
-   je zapnutý. Pak **Authentication** → **URL Configuration**: sem později (v
-   kroku 4) doplníte adresu appky z Vercelu.
+   je zapnutý, a vypněte přepínač **Confirm email** (appka teď přihlašuje
+   e-mailem a heslem bez nutnosti cokoli potvrzovat mailem — se zapnutým
+   Confirm email by registrace nefungovala rovnou). Pak **Authentication** →
+   **URL Configuration**: sem později (v kroku 4) doplníte adresu appky z
+   Vercelu.
 7. Vlevo v menu **Project Settings** → **API**. Odsud budete za chvíli
    potřebovat dvě hodnoty:
    - **Project URL**
@@ -85,9 +88,9 @@ Tím je kód appky na GitHubu a Vercel se k němu za chvíli připojí.
 
 ## Krok 5 — Stát se prvním adminem
 
-1. Otevřete appku na její adrese, zadejte svůj e-mail, klikněte na odkaz,
-   který vám přijde do schránky (i do spamu se mrkněte). Tím vznikne váš účet
-   — zatím s právem jen „náhled".
+1. Otevřete appku na její adrese, klikněte na „Nemáte účet? Založit si ho",
+   zadejte svůj e-mail a zvolte si heslo. Účet vznikne rovnou (nic se
+   nepotvrzuje mailem) — zatím s právem jen „náhled".
 2. V Supabase → **SQL Editor** → **New query** spusťte (s vaším skutečným e-mailem):
 
    ```sql
@@ -116,11 +119,25 @@ vypadá na Půdorysu.
 
 ## Krok 7 — Přidat lidem práva
 
-- Kdokoli s odkazem na appku se může přihlásit e-mailem, ale nově příchozí
-  mají automaticky jen právo **náhled**.
+- Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale
+  nově příchozí mají automaticky jen právo **náhled**.
 - Ve **Správě** → sekce **Lidé a práva** uvidíte každého, kdo se aspoň jednou
   přihlásil, a můžete mu nastavit **Rezervující** (může si sám rezervovat a
   rušit vlastní rezervace) nebo **Admin** (spravuje vše).
+
+## Přihlašování — e-mail a heslo
+
+- Appka používá klasické přihlášení e-mailem a heslem, ne odkaz do e-mailu —
+  lidé se tak budou přihlašovat opakovaně, aniž by pokaždé čekali na e-mail
+  (a naráželi na limit 2 e-maily/hodinu, viz níže).
+- Nový člověk si účet založí sám tlačítkem „Nemáte účet? Založit si ho" na
+  přihlašovací stránce — účet vznikne rovnou, žádné potvrzování e-mailem.
+- Kdo si dřív účet vytvořil starým způsobem (přes odkaz v e-mailu) a heslo
+  ještě nemá, nastaví si ho přes „Zapomenuté heslo?" — přijde mu e-mail
+  s odkazem na nastavení hesla, pak už se přihlašuje normálně heslem.
+- „Zapomenuté heslo" pořád posílá e-mail (Supabase), takže Gmail SMTP (viz
+  Krok 1 a poznámka níže) je i tak dobré mít nastavené — jen se používá
+  mnohem méně často než dřív, kdy šel e-mail při každém přihlášení.
 
 ---
 
@@ -134,6 +151,11 @@ vypadá na Půdorysu.
 - Databáze sama hlídá, aby se dvě rezervace stejné místnosti nepřekrývaly —
   při kolizi appka ukáže hlášku a rezervaci neuloží.
 - Rezervaci může zrušit její autor, nebo admin za kohokoli.
+- **Na telefonu** (úzká obrazovka) se vizuální půdorys schová a zůstává jen
+  seznam — zasedačky rovnou vypsané, cowork a ostatní prostory schované za
+  rozklikávacím „Cowork a další prostory". Na širší obrazovce (počítač,
+  tablet naležato) je to naopak — vizuální půdorys, bez duplicitního seznamu
+  pod ním.
 - Vše (kdo co smí) je vynucené přímo v databázi (Row Level Security), ne jen
   v zobrazení appky — i kdyby si někdo zkoušel upravovat požadavky napřímo,
   databáze cizí práva neumožní.
