@@ -381,7 +381,7 @@ export default function AdminClient({
       <Header profile={profile} />
       <div className="admin-wrap">
         <section className="admin-section">
-          <h2 className="font-display">Místnosti a prostory</h2>
+          <h2 className="font-display">Místnosti a stoly</h2>
           <div className="table-scroll">
           <table className="admin-table">
             <thead>
@@ -409,7 +409,7 @@ export default function AdminClient({
                       onChange={(e) => updateRoomField(room.id, "type", e.target.value)}
                     >
                       <option value="meeting_room">Zasedačka</option>
-                      <option value="space">Prostor</option>
+                      <option value="space">Stůl</option>
                     </select>
                   </td>
                   <td>
@@ -468,7 +468,7 @@ export default function AdminClient({
                 }
               >
                 <option value="meeting_room">Zasedačka</option>
-                <option value="space">Prostor</option>
+                <option value="space">Stůl</option>
               </select>
             </div>
             <div className="field">
@@ -757,7 +757,7 @@ export default function AdminClient({
                       <td>
                         {room.name}{" "}
                         <span style={{ color: "#55617a", fontSize: 11 }}>
-                          ({room.type === "meeting_room" ? "zasedačka" : "prostor"})
+                          ({room.type === "meeting_room" ? "zasedačka" : "stůl"})
                         </span>
                       </td>
                       {roomGroups.map((g) => {

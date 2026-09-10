@@ -1,37 +1,35 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import { Work_Sans } from "next/font/google";
 import "./globals.css";
 
-const display = Space_Grotesk({
+// Podle brand manuálu Business Gate: hlavní písmo je Work Sans (nadpisy
+// i běžný text appky). "Strojové" písmo z manuálu (Helvetica) appka bere
+// jako systémový font — viz --font-mono v globals.css — ať appka
+// nezávisí na dalším webfontu jen pro pár čísel/časů.
+const display = Work_Sans({
   subsets: ["latin"],
+  weight: ["600", "700"],
   variable: "--font-display",
   display: "swap",
 });
 
-const body = IBM_Plex_Sans({
+const body = Work_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-body",
   display: "swap",
 });
 
-const mono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: "Rezervace místností",
-  description: "Rezervační systém pro místnosti a prostory",
+  description: "Rezervační systém pro místnosti a stoly",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="cs" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html lang="cs" className={`${display.variable} ${body.variable}`}>
       <body>{children}</body>
     </html>
   );

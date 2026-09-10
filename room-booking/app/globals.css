@@ -3,9 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --font-display: "Space Grotesk", sans-serif;
-  --font-body: "IBM Plex Sans", sans-serif;
-  --font-mono: "IBM Plex Mono", monospace;
+  /* Podle brand manuálu Business Gate: hlavní písmo Work Sans (nadpisy i
+     text), "strojové" písmo pro čísla/časy je Helvetica (systémový font,
+     bez dalšího webfontu — viz app/layout.tsx). Barvy: brand červená
+     #E31E24 jako jediný akcent, černá/bílá jako neutrální základ. */
+  --font-display: "Work Sans", sans-serif;
+  --font-body: "Work Sans", sans-serif;
+  --font-mono: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  --color-accent: #e31e24;
+  --color-accent-dark: #b6181d;
+  --color-ink: #16233d;
 }
 
 * {
@@ -51,7 +59,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid #2b5fcc;
+  outline: 2px solid #E31E24;
   outline-offset: 2px;
 }
 
@@ -72,13 +80,13 @@ button {
   max-width: 380px;
   background: #ffffff;
   border: 1px solid #d7dce6;
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 40px 32px;
   box-shadow: 0 1px 2px rgba(22, 35, 61, 0.04);
 }
 
 .login-mark {
-  color: #2b5fcc;
+  color: #E31E24;
   margin-bottom: 16px;
 }
 
@@ -109,7 +117,7 @@ button {
 
 .login-form input {
   border: 1px solid #d7dce6;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 10px 12px;
   font-size: 15px;
   margin-bottom: 12px;
@@ -119,7 +127,7 @@ button {
   background: #16233d;
   color: #f7f5ef;
   border: none;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 11px 16px;
   font-size: 14px;
   font-weight: 600;
@@ -153,7 +161,7 @@ button {
   background: none;
   border: none;
   padding: 0;
-  color: #2b5fcc;
+  color: #E31E24;
   font-size: 13px;
   cursor: pointer;
   text-decoration: underline;
@@ -193,7 +201,7 @@ button {
 }
 
 .app-header .brand svg {
-  color: #2b5fcc;
+  color: #E31E24;
   flex: none;
 }
 
@@ -213,7 +221,7 @@ button {
 .menu-toggle {
   background: none;
   border: 1px solid #d7dce6;
-  border-radius: 3px;
+  border-radius: 6px;
   font-size: 18px;
   line-height: 1;
   padding: 6px 10px;
@@ -273,7 +281,7 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 3px 8px;
-  border-radius: 3px;
+  border-radius: 6px;
   border: 1px solid currentColor;
 }
 
@@ -281,7 +289,7 @@ button {
   color: #b8721e;
 }
 .role-badge.booker {
-  color: #2b5fcc;
+  color: #E31E24;
 }
 .role-badge.viewer {
   color: #55617a;
@@ -290,7 +298,7 @@ button {
 .app-header .logout {
   background: none;
   border: 1px solid #d7dce6;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 6px 12px;
   font-size: 13px;
 }
@@ -331,7 +339,7 @@ button {
   aspect-ratio: 16 / 9;
   background: #ffffff;
   border: 1px solid #d7dce6;
-  border-radius: 4px;
+  border-radius: 8px;
   background-image: linear-gradient(#eceff4 1px, transparent 1px),
     linear-gradient(90deg, #eceff4 1px, transparent 1px);
   background-size: 24px 24px;
@@ -343,16 +351,16 @@ button {
   transform: translate(-50%, -50%);
   min-width: 96px;
   padding: 8px 10px;
-  border-radius: 3px;
-  border: 1.5px solid #2b5fcc;
-  background: rgba(43, 95, 204, 0.06);
+  border-radius: 6px;
+  border: 1.5px solid #E31E24;
+  background: rgba(227, 30, 36, 0.06);
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .room-box:hover {
-  background: rgba(43, 95, 204, 0.12);
+  background: rgba(227, 30, 36, 0.12);
   box-shadow: 0 2px 6px rgba(22, 35, 61, 0.12);
 }
 
@@ -434,7 +442,7 @@ button {
   touch-action: none;
   background: rgba(255, 255, 255, 0.85);
   border: 1px dashed #b7bfcf;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 2px 6px;
 }
 
@@ -471,7 +479,7 @@ button {
 
 .overview-nav input[type="date"] {
   border: 1px solid #d7dce6;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 5px 8px;
   font-size: 13px;
   font-family: inherit;
@@ -518,7 +526,7 @@ button {
 
 .overview-grid {
   border: 1px solid #d7dce6;
-  border-radius: 4px;
+  border-radius: 8px;
   background: #ffffff;
   overflow: hidden;
 }
@@ -548,14 +556,28 @@ button {
   min-width: 96px;
 }
 
+.week-cell-clickable {
+  cursor: pointer;
+}
+
+.week-cell-clickable:hover {
+  background: #f1efe6;
+}
+
 .week-cell-empty {
   color: #c6cbd6;
 }
 
+.week-cell-purpose {
+  color: inherit;
+  opacity: 0.75;
+  font-style: italic;
+}
+
 .week-cell-booking {
-  background: rgba(43, 95, 204, 0.08);
-  border-left: 2px solid #2b5fcc;
-  border-radius: 2px;
+  background: rgba(227, 30, 36, 0.08);
+  border-left: 2px solid #E31E24;
+  border-radius: 4px;
   padding: 3px 5px;
   font-size: 11px;
   line-height: 1.35;
@@ -621,6 +643,19 @@ td.week-today {
   );
 }
 
+/* Klikatelný řádek Denního přehledu — jako v Google Calendari: klik na
+   volné místo rovnou založí rezervaci na ten čas. */
+.overview-row-track-interactive {
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.overview-hint {
+  font-size: 12px;
+  color: #55617a;
+  margin: -4px 0 10px;
+}
+
 .overview-hour {
   position: absolute;
   top: 0;
@@ -645,8 +680,8 @@ td.week-today {
   position: absolute;
   top: 6px;
   bottom: 6px;
-  border-radius: 3px;
-  background: #2b5fcc;
+  border-radius: 6px;
+  background: #E31E24;
   color: #ffffff;
   font-size: 11px;
   padding: 3px 6px;
@@ -660,10 +695,75 @@ td.week-today {
   background: #3e7c74;
 }
 
+.overview-block.draggable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.overview-block.draggable:active {
+  cursor: grabbing;
+}
+
 .overview-block-label {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Detail rezervace po kliknutí na termín v Denním přehledu — jako
+   modální kartička dole na obrazovce (position: fixed), ať ji nikde
+   neuřízne overflow:hidden okolních rámečků (a funguje i na mobilu). */
+.overview-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 35, 61, 0.35);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+}
+
+.overview-detail-card {
+  background: #fbfaf6;
+  border-radius: 10px 10px 0 0;
+  padding: 18px 20px 22px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 -6px 24px rgba(22, 35, 61, 0.2);
+}
+
+.overview-detail-time {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.overview-detail-who {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.overview-detail-purpose {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #55617a;
+}
+
+.overview-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+@media (min-width: 721px) {
+  .overview-detail-overlay {
+    align-items: center;
+  }
+
+  .overview-detail-card {
+    border-radius: 10px;
+  }
 }
 
 /* ---------- Room list (mobile) ---------- */
@@ -682,7 +782,7 @@ td.week-today {
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  color: #2b5fcc;
+  color: #E31E24;
   padding: 8px 0;
   list-style: none;
 }
@@ -768,15 +868,17 @@ td.week-today {
 
 .room-list-card {
   border: 1px solid #d7dce6;
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 14px;
   background: #ffffff;
   cursor: pointer;
   text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .room-list-card:hover {
-  border-color: #2b5fcc;
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 10px rgba(227, 30, 36, 0.1);
 }
 
 .room-list-card .code {
@@ -919,7 +1021,7 @@ td.week-today {
 .booking-form textarea,
 .booking-edit-form input {
   border: 1px solid #d7dce6;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 9px 10px;
   font-size: 14px;
   font-family: inherit;
@@ -937,21 +1039,32 @@ td.week-today {
 }
 
 .booking-form button[type="submit"] {
-  background: #2b5fcc;
+  background: var(--color-accent);
   color: white;
   border: none;
-  border-radius: 3px;
-  padding: 10px 16px;
+  border-radius: 8px;
+  padding: 11px 16px;
   font-weight: 600;
   font-size: 14px;
   margin-top: 4px;
+  box-shadow: 0 2px 8px rgba(227, 30, 36, 0.25);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.booking-form button[type="submit"]:hover {
+  background: var(--color-accent-dark);
+  box-shadow: 0 4px 14px rgba(227, 30, 36, 0.3);
+}
+
+.booking-form button[type="submit"]:active {
+  transform: translateY(1px);
 }
 
 .viewer-notice {
   font-size: 13px;
   background: #f1efe6;
   border: 1px solid #d7dce6;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 12px;
   color: #55617a;
   line-height: 1.5;
@@ -967,7 +1080,7 @@ td.week-today {
   font-size: 13px;
   background: #eaf5ee;
   border: 1px solid #cfe8d8;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 8px 10px;
 }
 
@@ -1025,7 +1138,7 @@ td.week-today {
 
 .qr-card {
   border: 1px solid #d7dce6;
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 14px;
   background: #ffffff;
   display: flex;
@@ -1051,7 +1164,7 @@ td.week-today {
 .admin-table input,
 .admin-table select {
   border: 1px solid #d7dce6;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 5px 7px;
   font-size: 13px;
   font-family: inherit;
@@ -1060,21 +1173,42 @@ td.week-today {
 .btn {
   border: 1px solid #d7dce6;
   background: #ffffff;
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 6px 12px;
   font-size: 13px;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.btn:hover {
+  border-color: #b7bfcf;
+  box-shadow: 0 1px 4px rgba(22, 35, 61, 0.08);
+}
+
+.btn:active {
+  transform: translateY(1px);
 }
 
 .btn.primary {
-  background: #16233d;
+  background: var(--color-ink);
   color: #f7f5ef;
-  border-color: #16233d;
+  border-color: var(--color-ink);
+}
+
+.btn.primary:hover {
+  background: #0e1626;
+  border-color: #0e1626;
+  box-shadow: 0 2px 8px rgba(22, 35, 61, 0.25);
 }
 
 .btn.danger {
   color: #b8721e;
   border-color: #b8721e;
   background: none;
+}
+
+.btn.danger:hover {
+  background: rgba(184, 114, 30, 0.08);
 }
 
 .new-room-form {

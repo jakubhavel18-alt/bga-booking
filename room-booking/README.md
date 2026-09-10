@@ -240,6 +240,27 @@ změna:
   UTC, což se v létě/zimě posunulo o den jinam, než čekáte. Teď appka
   počítá vždy s místním datem.
 
+## Krok 6g — Kalendář jako v Google Calendari, přejmenování "Stůl" a vzhled podle brand manuálu
+
+Zase žádná databázová změna, jen appka samotná:
+
+- **Denní přehled je teď interaktivní** — klikněte na volné místo u dané
+  místnosti a appka rovnou otevře rezervaci na ten čas (zaokrouhlený na
+  čtvrthodiny). Vlastní rezervaci (admin i cizí) jde přímo v přehledu
+  **přetáhnout** na jiný čas myší/prstem — uloží se to hned po puštění.
+  Klik na existující termín (bez přetažení) ukáže kartičku s tím, kdo si
+  ho zarezervoval a s jakým popisem/účelem, včetně možnosti ho rovnou
+  zrušit. V Týdenním přehledu jde stejně tak kliknout na prázdný den u
+  místnosti a založit rezervaci (na výchozí čas 9–10).
+- Typ místnosti **"Prostor" je přejmenovaný na "Stůl"** všude v appce
+  (výběr typu ve Správě, štítky u položek, seznam na Půdorysu) — lépe to
+  sedí na jednotlivá cowork místa.
+- **Vzhled appky teď vychází z brand manuálu Business Gate** — hlavní
+  písmo Work Sans, časy/kódy místností Helvetica, a jako jediný barevný
+  akcent brand červená (`#E31E24`) místo původní modré. Tlačítka, karty
+  a vstupní pole mají zaoblenější rohy a jemné stíny/přechody při najetí
+  myší — appka by měla působit měkčeji a sjednoceně se zbytkem značky.
+
 ## Krok 7 — Přidat lidem práva
 
 - Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale

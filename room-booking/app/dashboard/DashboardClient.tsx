@@ -173,6 +173,12 @@ export default function DashboardClient({
     );
   }
 
+  // Zvyšuje se při každém úspěšném refresh() — Denní/Týdenní přehled na
+  // to má vlastní efekt, ať se i on přenačte, když se rezervace založí,
+  // zruší nebo přesune odjinud (panel místnosti, Moje rezervace, ale i
+  // přetažení přímo v přehledu).
+  const [bookingsVersion, setBookingsVersion] = useState(0);
+
   async function refresh() {
     const supabase = createClient();
     const since = new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString();
@@ -186,6 +192,22 @@ export default function DashboardClient({
     ]);
     if (r) setRooms(r);
     if (b) setBookings(b as unknown as Booking[]);
+    setBookingsVersion((v) => v + 1);
+  }
+
+  // Klik na volné místo v Denním/Týdenním přehledu ("okno v kalendáři")
+  // otevře panel dané místnosti rovnou s předvyplněným datem a časem —
+  // jako v Google Calendari.
+  function handleCreateFromOverview(
+    roomId: string,
+    dateStr: string,
+    startTime: string,
+    endTime: string
+  ) {
+    setSelectedRoomId(roomId);
+    setDate(dateStr);
+    setStart(startTime);
+    setEnd(endTime);
   }
 
   async function handleBook(e: FormEvent) {
@@ -497,7 +519,7 @@ export default function DashboardClient({
 
           {spaceRooms.length > 0 && (
             <details className="room-spaces">
-              <summary>Cowork a další prostory ({spaceRooms.length})</summary>
+              <summary>Stoly ({spaceRooms.length})</summary>
               <div className="room-list">
                 {spaceRooms.map((room) => (
                   <button
@@ -505,7 +527,7 @@ export default function DashboardClient({
                     className="room-list-card"
                     onClick={() => setSelectedRoomId(room.id)}
                   >
-                    <span className="code">{roomCode(rooms, room)} · prostor</span>
+                    <span className="code">{roomCode(rooms, room)} · stůl</span>
                     <div className="name">
                       {isOccupiedNow(room.id) ? "🔶" : "🟢"} {room.name}
                     </div>
@@ -517,7 +539,15 @@ export default function DashboardClient({
         </div>
       </div>
 
-      <DayOverview rooms={rooms} visibleRoomIds={restrictedRoomIds} />
+      <DayOverview
+        rooms={rooms}
+        visibleRoomIds={restrictedRoomIds}
+        currentUserId={profile?.id ?? null}
+        isAdmin={profile?.role === "admin"}
+        onCreateBooking={handleCreateFromOverview}
+        onBookingsChanged={refresh}
+        refreshKey={bookingsVersion}
+      />
 
       {selectedRoom && (
         <div className="panel-overlay" onClick={() => setSelectedRoomId(null)}>
@@ -526,7 +556,7 @@ export default function DashboardClient({
               <div>
                 <h2 className="font-display">{selectedRoom.name}</h2>
                 <p className="meta">
-                  {selectedRoom.type === "meeting_room" ? "Zasedačka" : "Prostor"}
+                  {selectedRoom.type === "meeting_room" ? "Zasedačka" : "Stůl"}
                   {selectedRoom.capacity ? ` · kapacita ${selectedRoom.capacity}` : ""}
                   {selectedRoom.description ? ` · ${selectedRoom.description}` : ""}
                 </p>
