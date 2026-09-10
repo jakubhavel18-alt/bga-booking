@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
 import DayOverview from "./DayOverview";
 import type { Profile, Room, Booking, FloorplanLabel } from "@/lib/types";
+import { addDaysLocalStr, toLocalDateStr, todayLocalStr } from "@/lib/date";
 
 // Zaokrouhlí čas nahoru na nejbližších 5 minut — pro "rezervovat od teď".
 function roundedTime(date: Date) {
@@ -39,13 +40,12 @@ type Recurrence = "none" | "weekly" | "monthly";
 
 // Vrátí datum posunuté o n opakování dopředu (týden/měsíc), jako řetězec YYYY-MM-DD.
 function addPeriod(dateStr: string, freq: Exclude<Recurrence, "none">, n: number) {
-  const d = new Date(`${dateStr}T00:00:00`);
   if (freq === "weekly") {
-    d.setDate(d.getDate() + 7 * n);
-  } else {
-    d.setMonth(d.getMonth() + n);
+    return addDaysLocalStr(dateStr, 7 * n);
   }
-  return d.toISOString().slice(0, 10);
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setMonth(d.getMonth() + n);
+  return toLocalDateStr(d);
 }
 
 // Bezpečnostní strop, ať překlep v datu konce (např. o pár let dál) nezaloží
@@ -82,7 +82,7 @@ export default function DashboardClient({
   // z prvního vykreslení (initialSelectedRoomId přijde ze serveru), ať se
   // po naskenování na telefonu nic neblýskne ani neskočí.
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialSelectedRoomId);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todayLocalStr());
   const [start, setStart] = useState(() => roundedTime(new Date()));
   const [end, setEnd] = useState(() => roundedTime(new Date(Date.now() + 60 * 60000)));
   const [purpose, setPurpose] = useState("");
@@ -92,25 +92,41 @@ export default function DashboardClient({
   const [formNotice, setFormNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Přehled všech vlastních rezervací napříč místnostmi ("Moje rezervace").
+  const [showMyBookings, setShowMyBookings] = useState(false);
+
+  // Úprava času existující rezervace (vlastní, nebo cokoliv pro admina) —
+  // funguje jak v panelu místnosti, tak v "Moje rezervace".
+  const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+
   // Při otevření jiné místnosti (nebo zavření panelu) smažeme hlášky
-  // z předchozí rezervace, ať tam nevisí zpráva ke špatné místnosti.
+  // z předchozí rezervace, ať tam nevisí zpráva ke špatné místnosti, a
+  // zavřeme rozdělanou úpravu času, ať nezůstane viset u položky, která
+  // už tu není vidět.
   useEffect(() => {
     setFormError(null);
     setFormNotice(null);
+    setEditingBookingId(null);
+    setEditError(null);
   }, [selectedRoomId]);
 
   // Dokud je panel otevřený (typicky přes celou obrazovku na telefonu),
   // uzamkneme scroll stránky pod ním — jinak se na mobilu snadno rozjede
   // "dvojitý" scroll (panel + stránka pod ním) a celé to nepříjemně poskakuje.
   useEffect(() => {
-    if (selectedRoomId) {
+    if (selectedRoomId || showMyBookings) {
       const prevOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       return () => {
         document.body.style.overflow = prevOverflow;
       };
     }
-  }, [selectedRoomId]);
+  }, [selectedRoomId, showMyBookings]);
 
   const canBook = profile?.role === "booker" || profile?.role === "admin";
   const now = Date.now();
@@ -136,6 +152,17 @@ export default function DashboardClient({
       .filter((b) => new Date(b.ends_at).getTime() > now)
       .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }, [bookings, selectedRoomId, now]);
+
+  // Všechny vlastní nadcházející rezervace napříč místnostmi — ať člověk
+  // nemusí procházet místnost po místnosti, aby si třeba jen zrušil nebo
+  // posunul jednu rezervaci.
+  const myBookings = useMemo(() => {
+    if (!profile) return [];
+    return bookings
+      .filter((b) => b.user_id === profile.id)
+      .filter((b) => new Date(b.ends_at).getTime() > now)
+      .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  }, [bookings, profile, now]);
 
   function isOccupiedNow(roomId: string) {
     return bookings.some(
@@ -270,9 +297,150 @@ export default function DashboardClient({
     await refresh();
   }
 
+  function startEditBooking(b: Booking) {
+    setEditingBookingId(b.id);
+    setEditDate(toLocalDateStr(new Date(b.starts_at)));
+    setEditStart(new Date(b.starts_at).toTimeString().slice(0, 5));
+    setEditEnd(new Date(b.ends_at).toTimeString().slice(0, 5));
+    setEditError(null);
+  }
+
+  function cancelEditBooking() {
+    setEditingBookingId(null);
+    setEditError(null);
+  }
+
+  async function saveEditBooking(bookingId: string) {
+    setEditError(null);
+    if (new Date(`${editDate}T${editEnd}:00`) <= new Date(`${editDate}T${editStart}:00`)) {
+      setEditError("Konec musí být po začátku.");
+      return;
+    }
+    setEditSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("bookings")
+      .update({
+        starts_at: new Date(`${editDate}T${editStart}:00`).toISOString(),
+        ends_at: new Date(`${editDate}T${editEnd}:00`).toISOString(),
+      })
+      .eq("id", bookingId);
+    setEditSaving(false);
+    if (error) {
+      if (error.message.toLowerCase().includes("exclude") || error.code === "23P01") {
+        setEditError("V tomto novém čase je místnost už obsazená.");
+      } else {
+        setEditError("Změnu se nepodařilo uložit. Zkuste to znovu.");
+      }
+      return;
+    }
+    setEditingBookingId(null);
+    await refresh();
+  }
+
+  // Sdílené vykreslení jednoho řádku rezervace — používá se jak v panelu
+  // konkrétní místnosti, tak v "Moje rezervace" (tam navíc s názvem
+  // místnosti, ať je jasné, čeho se termín týká).
+  function renderBookingRow(b: Booking, showRoomName = false) {
+    const canManage = b.user_id === profile?.id || profile?.role === "admin";
+    const isEditing = editingBookingId === b.id;
+    const bookingRoom = rooms.find((r) => r.id === b.room_id);
+    return (
+      <div className="booking-row" key={b.id}>
+        {isEditing ? (
+          <div className="booking-edit-form">
+            {showRoomName && <div className="who">{bookingRoom?.name ?? "—"}</div>}
+            <div className="row">
+              <div>
+                <label htmlFor={`edit-date-${b.id}`}>Datum</label>
+                <input
+                  id={`edit-date-${b.id}`}
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor={`edit-start-${b.id}`}>Od</label>
+                <input
+                  id={`edit-start-${b.id}`}
+                  type="time"
+                  value={editStart}
+                  onChange={(e) => setEditStart(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor={`edit-end-${b.id}`}>Do</label>
+                <input
+                  id={`edit-end-${b.id}`}
+                  type="time"
+                  value={editEnd}
+                  onChange={(e) => setEditEnd(e.target.value)}
+                />
+              </div>
+            </div>
+            {editError && <p className="form-error">{editError}</p>}
+            <div className="booking-row-actions">
+              <button
+                className="btn primary"
+                disabled={editSaving}
+                onClick={() => saveEditBooking(b.id)}
+              >
+                {editSaving ? "Ukládám…" : "Uložit"}
+              </button>
+              <button className="btn" onClick={cancelEditBooking}>
+                Zrušit úpravu
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div>
+              <div className="time">
+                {showRoomName && <strong>{bookingRoom?.name ?? "—"} · </strong>}
+                {fmtDay(b.starts_at)} · {fmtTime(b.starts_at)}–{fmtTime(b.ends_at)}
+                {b.recurrence_group_id && <span className="recurrence-tag"> · opakuje se</span>}
+              </div>
+              <div className="who">
+                {b.profiles?.full_name || b.profiles?.email || "Neznámý"}
+                {b.purpose ? ` — ${b.purpose}` : ""}
+              </div>
+            </div>
+            {canManage && (
+              <div className="booking-row-actions">
+                <button className="btn" onClick={() => startEditBooking(b)}>
+                  Upravit čas
+                </button>
+                <button className="cancel" onClick={() => handleCancel(b.id)}>
+                  Zrušit
+                </button>
+                {b.recurrence_group_id && (
+                  <button
+                    className="cancel"
+                    onClick={() => handleCancelSeries(b.recurrence_group_id as string)}
+                  >
+                    Zrušit sérii
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
       <Header profile={profile} />
+
+      {profile && (
+        <div className="my-bookings-bar">
+          <button className="btn my-bookings-btn" onClick={() => setShowMyBookings(true)}>
+            Moje rezervace{myBookings.length > 0 ? ` (${myBookings.length})` : ""}
+          </button>
+        </div>
+      )}
 
       <div className="floorplan-wrap">
         <div className="floorplan">
@@ -469,35 +637,46 @@ export default function DashboardClient({
             {roomBookings.length === 0 && (
               <p style={{ fontSize: 13, color: "#55617a" }}>Zatím žádné rezervace.</p>
             )}
-            {roomBookings.map((b) => (
-              <div className="booking-row" key={b.id}>
-                <div>
-                  <div className="time">
-                    {fmtDay(b.starts_at)} · {fmtTime(b.starts_at)}–{fmtTime(b.ends_at)}
-                    {b.recurrence_group_id && <span className="recurrence-tag"> · opakuje se</span>}
-                  </div>
-                  <div className="who">
-                    {b.profiles?.full_name || b.profiles?.email || "Neznámý"}
-                    {b.purpose ? ` — ${b.purpose}` : ""}
-                  </div>
-                </div>
-                {(b.user_id === profile?.id || profile?.role === "admin") && (
-                  <div className="booking-row-actions">
-                    <button className="cancel" onClick={() => handleCancel(b.id)}>
-                      Zrušit
-                    </button>
-                    {b.recurrence_group_id && (
-                      <button
-                        className="cancel"
-                        onClick={() => handleCancelSeries(b.recurrence_group_id as string)}
-                      >
-                        Zrušit sérii
-                      </button>
-                    )}
-                  </div>
-                )}
+            {roomBookings.map((b) => renderBookingRow(b))}
+          </div>
+        </div>
+      )}
+
+      {showMyBookings && (
+        <div
+          className="panel-overlay"
+          onClick={() => {
+            setShowMyBookings(false);
+            cancelEditBooking();
+          }}
+        >
+          <div className="panel" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-head">
+              <div>
+                <h2 className="font-display">Moje rezervace</h2>
+                <p className="meta">
+                  Všechny vaše nadcházející rezervace na jednom místě — zrušit
+                  nebo posunout čas jde přímo tady, nemusíte hledat
+                  konkrétní místnost.
+                </p>
               </div>
-            ))}
+              <button
+                className="panel-close"
+                onClick={() => {
+                  setShowMyBookings(false);
+                  cancelEditBooking();
+                }}
+                aria-label="Zavřít"
+              >
+                ×
+              </button>
+            </div>
+            {myBookings.length === 0 && (
+              <p style={{ fontSize: 13, color: "#55617a" }}>
+                Zatím nemáte žádnou nadcházející rezervaci.
+              </p>
+            )}
+            {myBookings.map((b) => renderBookingRow(b, true))}
           </div>
         </div>
       )}

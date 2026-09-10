@@ -218,6 +218,28 @@ Ve **Správě** přibyla sekce **Půdorys — rozmístění**:
 Popisky se zobrazují i veřejně na Půdorysu v appce (jen jako text, nejde
 na ně kliknout ani rezervovat).
 
+## Krok 6f — Moje rezervace, úprava času a týdenní přehled
+
+Žádný nový krok v Supabase, jen novinky v appce samotné, žádná databázová
+změna:
+
+- **Tlačítko „Moje rezervace"** hned pod horní lištou (viditelné po
+  přihlášení) ukáže všechny vaše nadcházející rezervace napříč
+  místnostmi na jednom místě — nemusíte hledat, ve které místnosti jste
+  si co zarezervovali.
+- U každé rezervace (tady i v panelu konkrétní místnosti) je teď kromě
+  „Zrušit" i tlačítko **„Upravit čas"** — otevře se krátký formulář
+  přímo na místě, kde jde změnit datum i čas Od–Do, bez rušení a
+  zakládání nové rezervace. Jde jen o vlastní rezervace (admin může
+  upravit i cizí).
+- **Denní přehled** dostal přepínač **Den / Týden** — Týden ukáže
+  obsazenost všech místností na 7 dní najednou v tabulce (týden začíná
+  pondělím). Šipky ◀ ▶ pak v tomto režimu listují po celých týdnech.
+- Opravena chyba, kdy tlačítko „Další den" u Denního přehledu u některých
+  časových pásem (včetně českého) nic neudělalo — počítalo datum přes
+  UTC, což se v létě/zimě posunulo o den jinam, než čekáte. Teď appka
+  počítá vždy s místním datem.
+
 ## Krok 7 — Přidat lidem práva
 
 - Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale

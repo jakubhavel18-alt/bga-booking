@@ -295,6 +295,29 @@ button {
   font-size: 13px;
 }
 
+/* Lišta s tlačítkem "Moje rezervace" — schválně hned pod hlavičkou, ať je
+   vidět hned a nemusí se hledat, kde jde vlastní rezervace zrušit/upravit. */
+.my-bookings-bar {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 24px 0;
+}
+
+.my-bookings-btn {
+  min-height: 36px;
+}
+
+@media (max-width: 720px) {
+  .my-bookings-bar {
+    padding: 12px 16px 0;
+  }
+
+  .my-bookings-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
 /* ---------- Floor plan ---------- */
 .floorplan-wrap {
   padding: 24px;
@@ -481,11 +504,76 @@ button {
   }
 }
 
+/* Přepínač Den / Týden nad Denním/Týdenním přehledem. */
+.overview-mode-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.overview-mode-btn.active {
+  background: #16233d;
+  color: #f7f5ef;
+  border-color: #16233d;
+}
+
 .overview-grid {
   border: 1px solid #d7dce6;
   border-radius: 4px;
   background: #ffffff;
   overflow: hidden;
+}
+
+/* ---------- Týdenní přehled (tabulka) ---------- */
+.week-table {
+  min-width: 760px;
+}
+
+.week-table th,
+.week-table td {
+  vertical-align: top;
+}
+
+.week-room-label {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.week-room-label .code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #55617a;
+}
+
+.week-cell {
+  min-width: 96px;
+}
+
+.week-cell-empty {
+  color: #c6cbd6;
+}
+
+.week-cell-booking {
+  background: rgba(43, 95, 204, 0.08);
+  border-left: 2px solid #2b5fcc;
+  border-radius: 2px;
+  padding: 3px 5px;
+  font-size: 11px;
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+
+.week-cell-booking.space {
+  background: rgba(62, 124, 116, 0.09);
+  border-left-color: #3e7c74;
+}
+
+.week-cell-booking:last-child {
+  margin-bottom: 0;
+}
+
+th.week-today,
+td.week-today {
+  background: #fbf4e8;
 }
 
 .overview-hours {
@@ -804,13 +892,23 @@ button {
   font-size: 11px;
 }
 
-.booking-form {
+.booking-form,
+.booking-edit-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.booking-form label {
+/* Řádek "Upravit čas" se otevírá přímo v místě dané rezervace — ať jde na
+   mobilu ve výpisu "Nadcházející rezervace" / "Moje rezervace" snadno
+   změnit datum a čas bez skoku jinam. */
+.booking-edit-form {
+  width: 100%;
+  padding: 8px 0;
+}
+
+.booking-form label,
+.booking-edit-form label {
   font-size: 12px;
   color: #55617a;
   text-transform: uppercase;
@@ -818,7 +916,8 @@ button {
 }
 
 .booking-form input,
-.booking-form textarea {
+.booking-form textarea,
+.booking-edit-form input {
   border: 1px solid #d7dce6;
   border-radius: 3px;
   padding: 9px 10px;
@@ -827,11 +926,13 @@ button {
   width: 100%;
 }
 
-.booking-form .row {
+.booking-form .row,
+.booking-edit-form .row {
   display: flex;
   gap: 10px;
 }
-.booking-form .row > div {
+.booking-form .row > div,
+.booking-edit-form .row > div {
   flex: 1;
 }
 
