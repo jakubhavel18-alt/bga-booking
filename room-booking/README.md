@@ -278,6 +278,24 @@ Zase žádná databázová změna:
   jednotný styl — bílý text na červeném podkladu, podle vzoru nadpisů
   přímo z brand manuálu.
 
+## Krok 6i — Doplnit chybějící právo na úpravu rezervace v databázi (POVINNÉ, jakmile appku aktualizujete)
+
+⚠️ Tohle je skutečná příčina, proč se přetažení termínu (na jiný čas i do
+jiné místnosti) a tlačítko „Upravit čas" navenek tvářily, že proběhly (v
+prohlížeči to chvíli vypadalo správně), ale po přenačtení dat se to vrátilo
+zpátky — appka měla v databázi právo rezervaci vytvořit a smazat, ale nikdy
+ne **upravit**. Bez tohohle kroku se žádná úprava existující rezervace
+natrvalo neuloží, ani na novém, ani na starém projektu.
+
+1. V Supabase → **SQL Editor** → **New query** spusťte obsah souboru
+   [`supabase/add_bookings_update_policy.sql`](./supabase/add_bookings_update_policy.sql)
+   (jednou).
+2. Hotovo — přetažení termínu (čas i místnost) a „Upravit čas" se od teď
+   ukládají natrvalo.
+
+Na **novém** projektu je tohle už součástí `schema.sql`, tenhle krok netřeba
+dělat.
+
 ## Krok 7 — Přidat lidem práva
 
 - Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale

@@ -162,6 +162,19 @@ create policy "bookings_delete" on public.bookings
     auth.uid() = user_id or public.current_role() = 'admin'
   );
 
+-- Upravit rezervaci (čas, místnost, popis) může její autor, nebo admin za
+-- kohokoli — stejné právo jako u zrušení. Bez tohohle by appka sice tvářila,
+-- že se přesun/úprava uložily (optimistický náhled v prohlížeči), ale
+-- databáze by úpravu potichu odmítla a po přenačtení by se vrátil původní stav.
+drop policy if exists "bookings_update" on public.bookings;
+create policy "bookings_update" on public.bookings
+  for update using (
+    auth.uid() = user_id or public.current_role() = 'admin'
+  )
+  with check (
+    auth.uid() = user_id or public.current_role() = 'admin'
+  );
+
 -- Náhled skupin je veřejný (appka podle nich filtruje, co komu ukázat) —
 -- žádná citlivá data v tom nejsou, jen názvy skupin a přiřazení místností.
 drop policy if exists "room_groups_select" on public.room_groups;
