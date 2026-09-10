@@ -24,6 +24,13 @@ type DragState = {
   moved: boolean;
   previewStartMs: number;
   previewEndMs: number;
+  // Přetahování mezi místnostmi — místnost, ve které rezervace vznikla,
+  // a místnost, nad kterou je teď kurzor (zjištěno přes elementFromPoint).
+  // rowOffsetPx jen vizuálně posune termín do řádku, nad kterým je kurzor,
+  // aniž by se blok reálně přesouval v DOM (to by přerušilo pointer capture).
+  origRoomId: string;
+  currentRoomId: string;
+  rowOffsetPx: number;
 };
 
 function roomCode(rooms: Room[], room: Room) {
@@ -194,6 +201,9 @@ export default function DayOverview({
       moved: false,
       previewStartMs: origStartMs,
       previewEndMs: origEndMs,
+      origRoomId: b.room_id,
+      currentRoomId: b.room_id,
+      rowOffsetPx: 0,
     };
   }
 
@@ -223,6 +233,23 @@ export default function DayOverview({
     dragging.previewStartMs = newStart;
     dragging.previewEndMs = newEnd;
 
+    // Zjistit, nad kterým řádkem (místností) je teď kurzor — blok
+    // zůstává v DOM ve svém původním řádku (jinak by se ztratil pointer
+    // capture), místo toho ho jen vizuálně posuneme svislým transformem
+    // do řádku pod kurzorem.
+    if (dragging.moved) {
+      const hoveredEl = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest("[data-room-id]") as HTMLElement | null;
+      if (hoveredEl) {
+        dragging.currentRoomId = hoveredEl.getAttribute("data-room-id") ?? dragging.origRoomId;
+        dragging.rowOffsetPx = hoveredEl.getBoundingClientRect().top - rect.top;
+      } else {
+        dragging.currentRoomId = dragging.origRoomId;
+        dragging.rowOffsetPx = 0;
+      }
+    }
+
     setBookings((prev) =>
       prev.map((b) =>
         b.id === dragging.bookingId
@@ -243,12 +270,24 @@ export default function DayOverview({
       return;
     }
 
+    const roomChanged = dragging.currentRoomId !== dragging.origRoomId;
+
+    // Optimisticky přeřadit blok do cílové místnosti hned — vizuální
+    // svislý posun (rowOffsetPx) končí spolu s draggingRef, takže tenhle
+    // krok ho nahradí skutečným přeřazením do správného řádku.
+    if (roomChanged) {
+      setBookings((prev) =>
+        prev.map((b) => (b.id === dragging.bookingId ? { ...b, room_id: dragging.currentRoomId } : b))
+      );
+    }
+
     const supabase = createClient();
     const { error } = await supabase
       .from("bookings")
       .update({
         starts_at: new Date(dragging.previewStartMs).toISOString(),
         ends_at: new Date(dragging.previewEndMs).toISOString(),
+        ...(roomChanged ? { room_id: dragging.currentRoomId } : {}),
       })
       .eq("id", dragging.bookingId);
 
@@ -285,7 +324,7 @@ export default function DayOverview({
   return (
     <div className="overview-wrap">
       <div className="overview-header">
-        <h2 className="font-display">
+        <h2 className="font-display section-title">
           {viewMode === "day" ? "Denní přehled — kdo, kde, kdy" : "Týdenní přehled — kdo, kde, kdy"}
         </h2>
         <div className="overview-mode-toggle">
@@ -340,7 +379,8 @@ export default function DayOverview({
       {viewMode === "day" && onCreateBooking && (
         <p className="overview-hint">
           Klikněte na volné místo v kalendáři a rovnou tam založíte rezervaci. Vlastní
-          termín jde přetáhnout na jiný čas, klikem na něj zobrazíte kdo a proč ho má.
+          termín jde přetáhnout na jiný čas i do jiné místnosti, klikem na něj zobrazíte
+          kdo a proč ho má.
         </p>
       )}
 
@@ -372,6 +412,9 @@ export default function DayOverview({
 
           {visibleRooms.map((room) => {
             const roomBookings = bookings.filter((b) => b.room_id === room.id);
+            const dragging = draggingRef.current;
+            const isDropTarget =
+              !!dragging && dragging.moved && dragging.currentRoomId === room.id && dragging.currentRoomId !== dragging.origRoomId;
             return (
               <div className="overview-row" key={room.id}>
                 <div className="overview-row-label">
@@ -379,7 +422,10 @@ export default function DayOverview({
                   {room.name}
                 </div>
                 <div
-                  className="overview-row-track overview-row-track-interactive"
+                  className={`overview-row-track overview-row-track-interactive ${
+                    isDropTarget ? "overview-row-track-dragover" : ""
+                  }`}
+                  data-room-id={room.id}
                   onClick={(e) => handleTrackClick(e, room)}
                   onPointerMove={handleTrackPointerMove}
                   onPointerUp={handleTrackPointerUp}
@@ -391,11 +437,19 @@ export default function DayOverview({
                     const width = Math.max(pct(b.ends_at) - left, 1.5);
                     const who = b.profiles?.full_name || b.profiles?.email?.split("@")[0] || "";
                     const manageable = canManageBooking(b);
+                    const isBeingDragged = dragging?.bookingId === b.id && dragging.moved;
+                    const offsetY = isBeingDragged ? dragging!.rowOffsetPx : 0;
                     return (
                       <div
                         key={b.id}
-                        className={`overview-block ${room.type} ${manageable ? "draggable" : ""}`}
-                        style={{ left: `${left}%`, width: `${width}%` }}
+                        className={`overview-block ${room.type} ${manageable ? "draggable" : ""} ${
+                          isBeingDragged ? "dragging" : ""
+                        }`}
+                        style={{
+                          left: `${left}%`,
+                          width: `${width}%`,
+                          transform: offsetY ? `translateY(${offsetY}px)` : undefined,
+                        }}
                         title={`${fmtTime(b.starts_at)}–${fmtTime(b.ends_at)} · ${who}${
                           b.purpose ? " · " + b.purpose : ""
                         }`}

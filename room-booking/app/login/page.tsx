@@ -124,20 +124,8 @@ export default function LoginPage() {
     <main className="login-page">
       <div className="login-card">
         <div className="login-mark" aria-hidden="true">
-          <svg viewBox="0 0 48 48" width="36" height="36">
-            <rect
-              x="4"
-              y="10"
-              width="40"
-              height="30"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-            <line x1="4" y1="20" x2="44" y2="20" stroke="currentColor" strokeWidth="1" />
-            <line x1="20" y1="20" x2="20" y2="40" stroke="currentColor" strokeWidth="1" />
-            <line x1="32" y1="10" x2="32" y2="20" stroke="currentColor" strokeWidth="1" />
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/business-gate-logo.png" alt="" />
         </div>
         <h1 className="font-display">{copy.title}</h1>
         <p className="login-sub">{copy.sub}</p>

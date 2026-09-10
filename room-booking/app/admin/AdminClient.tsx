@@ -381,7 +381,7 @@ export default function AdminClient({
       <Header profile={profile} />
       <div className="admin-wrap">
         <section className="admin-section">
-          <h2 className="font-display">Místnosti a stoly</h2>
+          <h2 className="font-display section-title">Místnosti a stoly</h2>
           <div className="table-scroll">
           <table className="admin-table">
             <thead>
@@ -509,7 +509,7 @@ export default function AdminClient({
         </section>
 
         <section className="admin-section">
-          <h2 className="font-display">Půdorys — rozmístění</h2>
+          <h2 className="font-display section-title">Půdorys — rozmístění</h2>
           <p style={{ fontSize: 13, color: "#55617a", marginBottom: 16 }}>
             Přetáhněte místnost nebo popisek myší (na telefonu prstem) přímo
             na místo v půdorysu — pozice se uloží hned po puštění. Popisky
@@ -601,7 +601,7 @@ export default function AdminClient({
         </section>
 
         <section className="admin-section">
-          <h2 className="font-display">QR kódy pro rezervaci od dveří</h2>
+          <h2 className="font-display section-title">QR kódy pro rezervaci od dveří</h2>
           <p style={{ fontSize: 13, color: "#55617a", marginBottom: 16 }}>
             Vytiskněte a nalepte u konkrétní místnosti. Naskenování otevře
             appku rovnou na rezervaci téhle místnosti a předvyplní čas „teď" —
@@ -644,7 +644,7 @@ export default function AdminClient({
         </section>
 
         <section className="admin-section">
-          <h2 className="font-display">Lidé a práva</h2>
+          <h2 className="font-display section-title">Lidé a práva</h2>
           <div className="table-scroll">
           <table className="admin-table">
             <thead>
@@ -709,7 +709,7 @@ export default function AdminClient({
         </section>
 
         <section className="admin-section">
-          <h2 className="font-display">Skupiny místností</h2>
+          <h2 className="font-display section-title">Skupiny místností</h2>
           <p style={{ fontSize: 13, color: "#55617a", marginBottom: 16 }}>
             Pro lidi, kteří nemají vidět všechno — např. skupina „Fixní
             místo" pro lidi, co mají svůj stálý stůl a cowork prostory pro ně
@@ -783,7 +783,7 @@ export default function AdminClient({
         </section>
 
         <section className="admin-section">
-          <h2 className="font-display">Čerpání hodin</h2>
+          <h2 className="font-display section-title">Čerpání hodin</h2>
           <p style={{ fontSize: 12, color: "#55617a", marginTop: -4, marginBottom: 12 }}>
             Počítají se jen rezervace zasedaček — cowork a další prostory se
             do limitu nepočítají.
@@ -893,7 +893,7 @@ export default function AdminClient({
         </section>
 
         <section className="admin-section">
-          <h2 className="font-display">Poslední rezervace</h2>
+          <h2 className="font-display section-title">Poslední rezervace</h2>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 12, color: "#55617a", marginRight: 8 }}>
               Kdo

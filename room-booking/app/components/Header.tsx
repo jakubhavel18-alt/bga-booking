@@ -30,19 +30,8 @@ export default function Header({ profile }: { profile: Profile | null }) {
     <header className="app-header">
       <div className="app-header-bar">
         <div className="brand">
-          <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden="true">
-            <rect
-              x="4"
-              y="10"
-              width="40"
-              height="30"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-            <line x1="4" y1="20" x2="44" y2="20" stroke="currentColor" strokeWidth="1" />
-            <line x1="20" y1="20" x2="20" y2="40" stroke="currentColor" strokeWidth="1" />
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/business-gate-logo.png" alt="Business Gate" className="brand-logo" />
           <h1 className="font-display">Rezervace místností</h1>
         </div>
 

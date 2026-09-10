@@ -261,6 +261,23 @@ Zase žádná databázová změna, jen appka samotná:
   a vstupní pole mají zaoblenější rohy a jemné stíny/přechody při najetí
   myší — appka by měla působit měkčeji a sjednoceně se zbytkem značky.
 
+## Krok 6h — Přetahování mezi místnostmi, logo a sjednocené nadpisy sekcí
+
+Zase žádná databázová změna:
+
+- V Denním přehledu teď jde termín přetáhnout **i do jiné místnosti**, ne
+  jen na jiný čas — stačí ho přetáhnout myší/prstem svisle do jiného
+  řádku a pustit. Řádek, nad kterým se zrovna termín drží, se jemně
+  podbarví, ať je jasné, kam se po puštění přesune. Přesun se uloží
+  stejně jako u změny času — pokud je cílová místnost v tu chvíli
+  obsazená, appka to nahlásí a přesun vrátí zpátky.
+- Appka teď na pár místech ukazuje skutečné **logo Business Gate**
+  (hlavička appky, přihlašovací obrazovka, nastavení hesla) — vytažené
+  přímo z dodaného brand manuálu.
+- Hlavní nadpisy sekcí (ve Správě i Denním/Týdenním přehledu) mají nový
+  jednotný styl — bílý text na červeném podkladu, podle vzoru nadpisů
+  přímo z brand manuálu.
+
 ## Krok 7 — Přidat lidem práva
 
 - Kdokoli s odkazem na appku si může sám založit účet e-mailem a heslem, ale
