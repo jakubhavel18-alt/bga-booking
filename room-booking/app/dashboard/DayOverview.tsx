@@ -416,7 +416,7 @@ export default function DayOverview({
             const isDropTarget =
               !!dragging && dragging.moved && dragging.currentRoomId === room.id && dragging.currentRoomId !== dragging.origRoomId;
             return (
-              <div className="overview-row" key={room.id}>
+              <div className="overview-row" key={room.id} data-room-id={room.id}>
                 <div className="overview-row-label">
                   <span className="code">{roomCode(rooms, room)}</span>
                   {room.name}

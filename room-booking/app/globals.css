@@ -740,6 +740,10 @@ td.week-today {
 .overview-block.dragging {
   z-index: 5;
   box-shadow: 0 4px 14px rgba(22, 35, 61, 0.35);
+  /* Zásadní: bez tohohle by přetahovaný blok sám sebe "viděl" pod
+     kurzorem (elementFromPoint), takže by appka nikdy nezjistila, nad
+     jakou místností reálně je — pořád by to vycházelo na tu původní. */
+  pointer-events: none;
 }
 
 .overview-block-label {
