@@ -1172,6 +1172,13 @@ td.week-today {
   vertical-align: middle;
 }
 
+.qr-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
 .qr-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -1188,6 +1195,22 @@ td.week-today {
   align-items: center;
   gap: 8px;
   text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.qr-card-selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.qr-card-checkbox {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #55617a;
+  cursor: pointer;
 }
 
 .qr-card-name {

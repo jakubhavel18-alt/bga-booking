@@ -2,6 +2,8 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import QRCode from "qrcode";
+import { jsPDF } from "jspdf";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
 import type {
@@ -13,6 +15,85 @@ import type {
   RoomGroup,
   FloorplanLabel,
 } from "@/lib/types";
+
+// Načte obrázek (data URL) jako HTMLImageElement — potřeba, než ho jde
+// vykreslit do canvasu (a odtud pak vložit do PDF).
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+// Zalomí text na max. 2 řádky tak, ať se vejde do dané šířky canvasu —
+// dlouhé názvy místností ať nepřetékají přes okraj kartičky v PDF.
+function wrapTwoLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (ctx.measureText(candidate).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  if (lines.length > 2) {
+    const rest = lines.slice(1).join(" ");
+    lines.length = 1;
+    let truncated = rest;
+    while (ctx.measureText(truncated + "…").width > maxWidth && truncated.length > 1) {
+      truncated = truncated.slice(0, -1);
+    }
+    lines.push(truncated + "…");
+  }
+  return lines;
+}
+
+// Jedna kartička do PDF (název místnosti + QR kód) vykreslená do canvasu —
+// text jde přes canvas, ne přes jsPDF vestavěné fonty, ať se v PDF správně
+// zobrazí i česká diakritika (ř, š, ě, ů…), kterou standardní fonty PDF
+// neumí.
+async function buildQrCardCanvas(roomName: string, qrDataUrl: string): Promise<string> {
+  const W = 640;
+  const H = 760;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return qrDataUrl;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#d7dce6";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(6, 6, W - 12, H - 12);
+
+  ctx.fillStyle = "#16233d";
+  ctx.textAlign = "center";
+  ctx.font = "700 42px system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
+  const lines = wrapTwoLines(ctx, roomName, W - 80);
+  const lineHeight = 52;
+  const nameBlockTop = lines.length === 1 ? 92 : 70;
+  lines.forEach((line, i) => ctx.fillText(line, W / 2, nameBlockTop + i * lineHeight));
+
+  ctx.fillStyle = "#55617a";
+  ctx.font = "400 22px system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText("Naskenujte pro rezervaci", W / 2, nameBlockTop + lines.length * lineHeight + 6);
+
+  const qrImg = await loadImage(qrDataUrl);
+  const qrSize = 480;
+  const qrX = (W - qrSize) / 2;
+  const qrY = nameBlockTop + lines.length * lineHeight + 40;
+  ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+  return canvas.toDataURL("image/png");
+}
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -49,6 +130,91 @@ export default function AdminClient({
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
+
+  // QR kódy pro jednotlivé místnosti — generují se rovnou v appce (dřív se
+  // vytvářely přes externí api.qrserver.com, což posílalo adresu appky
+  // ven a bylo to závislé na cizí službě). qrError je jen pro "co když se
+  // to fakt nepovede vygenerovat" případ.
+  const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [selectedQrRoomIds, setSelectedQrRoomIds] = useState<Set<string>>(
+    () => new Set(initialRooms.map((r) => r.id))
+  );
+  const [qrPdfBusy, setQrPdfBusy] = useState(false);
+
+  useEffect(() => {
+    if (!origin || rooms.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        rooms.map(async (room) => {
+          const roomUrl = `${origin}/dashboard?room=${room.id}`;
+          try {
+            const dataUrl = await QRCode.toDataURL(roomUrl, {
+              width: 400,
+              margin: 1,
+              color: { dark: "#000000", light: "#ffffff" },
+            });
+            return [room.id, dataUrl] as const;
+          } catch {
+            return [room.id, ""] as const;
+          }
+        })
+      );
+      if (!cancelled) setQrDataUrls(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [origin, rooms]);
+
+  function toggleQrRoom(roomId: string) {
+    setSelectedQrRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) next.delete(roomId);
+      else next.add(roomId);
+      return next;
+    });
+  }
+
+  async function handleDownloadQrPdf() {
+    const selected = rooms.filter((r) => selectedQrRoomIds.has(r.id) && qrDataUrls[r.id]);
+    if (selected.length === 0) return;
+    setQrPdfBusy(true);
+    setQrError(null);
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const cols = 2;
+      const rowsPerPage = 3;
+      const perPage = cols * rowsPerPage;
+      const margin = 12;
+      const pageW = 210;
+      const pageH = 297;
+      const cellW = (pageW - margin * 2) / cols;
+      const cellH = (pageH - margin * 2) / rowsPerPage;
+      const cardSize = Math.min(cellW, cellH) - 6;
+
+      for (let i = 0; i < selected.length; i++) {
+        const room = selected[i];
+        const posInPage = i % perPage;
+        if (i > 0 && posInPage === 0) doc.addPage();
+        const col = posInPage % cols;
+        const row = Math.floor(posInPage / cols);
+        const cardDataUrl = await buildQrCardCanvas(room.name, qrDataUrls[room.id]);
+        const x = margin + col * cellW + (cellW - cardSize) / 2;
+        const y = margin + row * cellH + (cellH - cardSize) / 2;
+        // "MEDIUM" komprese je tu důležitá — bez ní jsPDF vloží obrázek
+        // nekomprimovaně (desítky MB na pár místností místo pár set kB).
+        doc.addImage(cardDataUrl, "PNG", x, y, cardSize, cardSize, undefined, "MEDIUM");
+      }
+
+      doc.save("qr-kody-mistnosti.pdf");
+    } catch {
+      setQrError("PDF se nepodařilo vygenerovat, zkuste to znovu.");
+    } finally {
+      setQrPdfBusy(false);
+    }
+  }
   const [newRoom, setNewRoom] = useState({
     name: "",
     type: "meeting_room" as RoomType,
@@ -606,15 +772,48 @@ export default function AdminClient({
             Vytiskněte a nalepte u konkrétní místnosti. Naskenování otevře
             appku rovnou na rezervaci téhle místnosti a předvyplní čas „teď" —
             pro last-minute rezervaci z telefonu tak stačí pár klepnutí.
+            Zaškrtněte, které místnosti chcete, a stáhněte je jako jedno PDF
+            připravené k tisku (dvě QR kartičky na řádek, 6 na stránku).
           </p>
+
+          {rooms.length > 0 && (
+            <div className="qr-controls">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setSelectedQrRoomIds(new Set(rooms.map((r) => r.id)))}
+              >
+                Vybrat vše
+              </button>
+              <button type="button" className="btn" onClick={() => setSelectedQrRoomIds(new Set())}>
+                Zrušit výběr
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                disabled={qrPdfBusy || selectedQrRoomIds.size === 0}
+                onClick={handleDownloadQrPdf}
+              >
+                {qrPdfBusy ? "Připravuji PDF…" : `Stáhnout PDF (${selectedQrRoomIds.size})`}
+              </button>
+            </div>
+          )}
+          {qrError && <p className="form-error">{qrError}</p>}
+
           <div className="qr-grid">
             {rooms.map((room) => {
-              const roomUrl = origin ? `${origin}/dashboard?room=${room.id}` : "";
-              const qrSrc = roomUrl
-                ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(roomUrl)}`
-                : "";
+              const qrSrc = qrDataUrls[room.id] || "";
+              const checked = selectedQrRoomIds.has(room.id);
               return (
-                <div className="qr-card" key={room.id}>
+                <div className={`qr-card ${checked ? "qr-card-selected" : ""}`} key={room.id}>
+                  <label className="qr-card-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleQrRoom(room.id)}
+                    />
+                    Vybrat pro PDF
+                  </label>
                   <div className="qr-card-name">{room.name}</div>
                   {qrSrc ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -622,7 +821,7 @@ export default function AdminClient({
                   ) : (
                     <div style={{ width: 160, height: 160 }} />
                   )}
-                  {roomUrl && (
+                  {qrSrc && (
                     <a
                       className="qr-card-link"
                       href={qrSrc}

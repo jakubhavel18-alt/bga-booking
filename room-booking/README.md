@@ -315,8 +315,13 @@ místnosti v seznamu.
 
 - Kliknutím na „Otevřít QR" se obrázek otevře v nové záložce — tam ho jde
   uložit (nebo rovnou vytisknout) a nalepit u dveří.
-- QR kód vzniká přes veřejnou službu `api.qrserver.com` (žádné heslo ani
-  citlivá data se nikam neposílají, jen adresa appky).
+- **Stáhnout PDF** — zaškrtněte, které místnosti chcete (nebo „Vybrat
+  vše"), a appka vygeneruje jedno PDF ke stažení a tisku: kartička s
+  názvem místnosti a QR kódem, 6 na stránku A4 (2×3), připravené k
+  rozstříhání a nalepení u dveří.
+- QR kódy se od teď generují přímo v appce (dřív přes veřejnou službu
+  `api.qrserver.com`) — nikam se tak neposílá ani adresa appky, funguje to
+  i bez připojení k té službě.
 - Kdo QR naskenuje bez účtu, appka mu obsazenost i tak ukáže — teprve na
   samotné „Zarezervovat" ho appka pošle na přihlášení a po přihlášení ho
   vrátí přesně zpátky na stejnou místnost.
