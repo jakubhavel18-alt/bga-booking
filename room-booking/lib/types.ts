@@ -44,6 +44,9 @@ export interface Room {
   // stav, dokud admin místnost na Půdorysu neroztáhne do reálné velikosti).
   pos_w: number | null;
   pos_h: number | null;
+  // Otočit popisek (kód/název) o 90° — hodí se pro úzké/vysoké místnosti,
+  // kde se text "naležato" lépe vejde a líp se čte.
+  label_rotated: boolean;
   // Které patro (viz lib/floors.ts) — NULL = nezařazeno (appka místnost
   // ukáže v seznamech, ale na žádném půdorysu, dokud admin patro nenastaví).
   floor: number | null;

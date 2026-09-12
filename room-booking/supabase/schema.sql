@@ -125,6 +125,9 @@ alter table public.rooms add column if not exists pos_h numeric;
 -- normálně volné k rezervaci jako dřív.
 alter table public.rooms add column if not exists permanent_occupant text;
 
+-- Otočit popisek místnosti na půdorysu o 90° (pro úzké/vysoké místnosti).
+alter table public.rooms add column if not exists label_rotated boolean not null default false;
+
 -- ---------- Pomocná funkce: role přihlášeného uživatele ----------
 create or replace function public.current_role()
 returns user_role as $$

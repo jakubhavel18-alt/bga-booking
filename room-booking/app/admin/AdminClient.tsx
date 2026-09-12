@@ -225,6 +225,10 @@ export default function AdminClient({
     floor: "",
   });
   const [busy, setBusy] = useState(false);
+  // Sloupce s polohou/velikostí na půdorysu jen zabírají místo v tabulce
+  // (nastavuje se to hlavně tažením přímo na Půdorysu níže) — schované
+  // ve výchozím stavu, ať tabulka není přeplácaná.
+  const [showPositionCols, setShowPositionCols] = useState(false);
   // Které patro se zrovna edituje v sekci "Půdorys — rozmístění".
   const [editorFloor, setEditorFloor] = useState<number>(FLOORS[1].value);
   const [newLabelFloor, setNewLabelFloor] = useState<string>(String(FLOORS[1].value));
@@ -299,7 +303,14 @@ export default function AdminClient({
   useEffect(() => {
     labelsRef.current = labels;
   }, [labels]);
-  const draggingRef = useRef<{ kind: "room" | "label" | "resize"; id: string } | null>(null);
+  const draggingRef = useRef<
+    | { kind: "room" | "label"; id: string }
+    // Roh naproti tomu, který se táhne, zůstává na místě (anchorX/Y) —
+    // roztahuje/zmenšuje se tak jen ta strana, za kterou se zrovna táhne,
+    // ne symetricky od středu.
+    | { kind: "resize"; id: string; anchorX: number; anchorY: number }
+    | null
+  >(null);
 
   function clampPct(v: number) {
     return Math.min(100, Math.max(0, v));
@@ -326,12 +337,19 @@ export default function AdminClient({
 
   // Úchyt v pravém dolním rohu kartičky místnosti — táhne se zvlášť od
   // přesunu (stopPropagation), aby se přesun a změna velikosti nebily.
-  // Velikost je symetrická kolem středu (pos_x/pos_y), takže tažením rohu
-  // o vzdálenost d od středu vznikne šířka/výška 2×d.
-  function handleResizeStart(e: ReactPointerEvent<HTMLElement>, id: string) {
+  // Protilehlý (levý horní) roh se spočítá ze současné pozice/velikosti a
+  // zůstane po celou dobu tažení na místě jako pevný bod.
+  function handleResizeStart(e: ReactPointerEvent<HTMLElement>, room: Room) {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
-    draggingRef.current = { kind: "resize", id };
+    const halfW = (room.pos_w ?? 0) / 2;
+    const halfH = (room.pos_h ?? 0) / 2;
+    draggingRef.current = {
+      kind: "resize",
+      id: room.id,
+      anchorX: room.pos_x - halfW,
+      anchorY: room.pos_y - halfH,
+    };
   }
 
   function handleDragMove(e: ReactPointerEvent<HTMLElement>) {
@@ -344,12 +362,13 @@ export default function AdminClient({
         prev.map((r) => (r.id === dragging.id ? { ...r, pos_x: pos.x, pos_y: pos.y } : r))
       );
     } else if (dragging.kind === "resize") {
+      const { anchorX, anchorY } = dragging;
       setRooms((prev) =>
         prev.map((r) => {
           if (r.id !== dragging.id) return r;
-          const w = Math.min(95, Math.max(4, Math.abs(pos.x - r.pos_x) * 2));
-          const h = Math.min(95, Math.max(4, Math.abs(pos.y - r.pos_y) * 2));
-          return { ...r, pos_w: w, pos_h: h };
+          const w = Math.min(95, Math.max(4, pos.x - anchorX));
+          const h = Math.min(95, Math.max(4, pos.y - anchorY));
+          return { ...r, pos_x: anchorX + w / 2, pos_y: anchorY + h / 2, pos_w: w, pos_h: h };
         })
       );
     } else {
@@ -378,7 +397,7 @@ export default function AdminClient({
       if (room) {
         await supabase
           .from("rooms")
-          .update({ pos_w: room.pos_w, pos_h: room.pos_h })
+          .update({ pos_x: room.pos_x, pos_y: room.pos_y, pos_w: room.pos_w, pos_h: room.pos_h })
           .eq("id", room.id);
       }
     } else {
@@ -533,7 +552,16 @@ export default function AdminClient({
       pos_h: room.pos_h === null || String(room.pos_h) === "" ? null : Number(room.pos_h),
       floor: room.floor === null || String(room.floor) === "" ? null : Number(room.floor),
       permanent_occupant: room.permanent_occupant?.trim() ? room.permanent_occupant.trim() : null,
+      label_rotated: !!room.label_rotated,
     };
+  }
+
+  // Otočení popisku se ukládá rovnou (jako u výběru patra), bez čekání na
+  // "Uložit vše" — je to jednoduchý přepínač, ne rozepsaný text k doladění.
+  async function updateRoomLabelRotated(room: Room, value: boolean) {
+    setRooms((prev) => prev.map((r) => (r.id === room.id ? { ...r, label_rotated: value } : r)));
+    const supabase = createClient();
+    await supabase.from("rooms").update({ label_rotated: value }).eq("id", room.id);
   }
 
   async function saveRoom(room: Room) {
@@ -621,15 +649,14 @@ export default function AdminClient({
             <h2 className="font-display section-title" style={{ marginBottom: 0 }}>
               Místnosti a stoly
             </h2>
-            <button className="btn primary" disabled={busy} onClick={saveAllRooms}>
-              Uložit vše
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setShowPositionCols((v) => !v)}
+            >
+              {showPositionCols ? "Skrýt" : "Zobrazit"} pozice a velikosti
             </button>
           </div>
-          <p style={{ fontSize: 12, color: "#55617a", margin: "6px 0 12px" }}>
-            Klidně přepište víc řádků najednou a uložte je jedním klikem na
-            „Uložit vše" — tlačítko „Uložit" u jednotlivého řádku pořád jde
-            použít, když chcete odeslat jen tu jednu místnost.
-          </p>
           <div className="table-scroll">
           <table className="admin-table">
             <thead>
@@ -638,10 +665,14 @@ export default function AdminClient({
                 <th>Typ</th>
                 <th>Patro</th>
                 <th>Kapacita</th>
-                <th>Poloha X %</th>
-                <th>Poloha Y %</th>
-                <th>Šířka %</th>
-                <th>Výška %</th>
+                {showPositionCols && (
+                  <>
+                    <th>Poloha X %</th>
+                    <th>Poloha Y %</th>
+                    <th>Šířka %</th>
+                    <th>Výška %</th>
+                  </>
+                )}
                 <th>Trvale obsazeno (kým)</th>
                 <th></th>
               </tr>
@@ -685,40 +716,44 @@ export default function AdminClient({
                       onChange={(e) => updateRoomField(room.id, "capacity", e.target.value)}
                     />
                   </td>
-                  <td>
-                    <input
-                      type="number"
-                      style={{ width: 64 }}
-                      value={room.pos_x}
-                      onChange={(e) => updateRoomField(room.id, "pos_x", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      style={{ width: 64 }}
-                      value={room.pos_y}
-                      onChange={(e) => updateRoomField(room.id, "pos_y", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      style={{ width: 64 }}
-                      placeholder="—"
-                      value={room.pos_w ?? ""}
-                      onChange={(e) => updateRoomField(room.id, "pos_w", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      style={{ width: 64 }}
-                      placeholder="—"
-                      value={room.pos_h ?? ""}
-                      onChange={(e) => updateRoomField(room.id, "pos_h", e.target.value)}
-                    />
-                  </td>
+                  {showPositionCols && (
+                    <>
+                      <td>
+                        <input
+                          type="number"
+                          style={{ width: 64 }}
+                          value={room.pos_x}
+                          onChange={(e) => updateRoomField(room.id, "pos_x", e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          style={{ width: 64 }}
+                          value={room.pos_y}
+                          onChange={(e) => updateRoomField(room.id, "pos_y", e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          style={{ width: 64 }}
+                          placeholder="—"
+                          value={room.pos_w ?? ""}
+                          onChange={(e) => updateRoomField(room.id, "pos_w", e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          style={{ width: 64 }}
+                          placeholder="—"
+                          value={room.pos_h ?? ""}
+                          onChange={(e) => updateRoomField(room.id, "pos_h", e.target.value)}
+                        />
+                      </td>
+                    </>
+                  )}
                   <td>
                     <input
                       type="text"
@@ -741,6 +776,17 @@ export default function AdminClient({
             </tbody>
           </table>
           </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+            <button className="btn primary" disabled={busy} onClick={saveAllRooms}>
+              Uložit vše
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: "#55617a", margin: "6px 0 0", textAlign: "right" }}>
+            Klidně přepište víc řádků najednou a uložte je jedním klikem na
+            „Uložit vše" — tlačítko „Uložit" u jednotlivého řádku pořád jde
+            použít, když chcete odeslat jen tu jednu místnost.
+          </p>
 
           <div className="new-room-form">
             <div className="field">
@@ -825,12 +871,15 @@ export default function AdminClient({
             na místo v reálném půdorysu daného patra — pozice se uloží hned
             po puštění. U místnosti jde navíc chytit malý čtvereček v pravém
             dolním rohu kartičky a roztáhnout ji do skutečné velikosti dané
-            zasedačky/stolu na plánku (jde nastavit i přesně čísly ve sloupcích
-            „Šířka %" / „Výška %" v tabulce místností výše). Popisky slouží jen
-            jako volný text bez rezervace (např. „Recepce", „Kuchyňka", „WC").
-            Místnost nebo popisek se tu zobrazí, jen když má přiřazené tohle
-            patro (viz sloupec „Patro" v tabulce místností výše / u popisků
-            níže).
+            zasedačky/stolu na plánku — protilehlý roh zůstává na místě, takže
+            se roztahuje jen ta strana, za kterou zrovna táhnete (jde nastavit
+            i přesně čísly přes tlačítko „Zobrazit pozice a velikosti" výše).
+            Kolečko „⟳" v levém horním rohu otočí popisek o 90°, pro úzké
+            nebo vysoké místnosti, kde se text lépe vejde naležato. Popisky
+            slouží jen jako volný text bez rezervace (např. „Recepce",
+            „Kuchyňka", „WC"). Místnost nebo popisek se tu zobrazí, jen když
+            má přiřazené tohle patro (viz sloupec „Patro" v tabulce místností
+            výše / u popisků níže).
           </p>
 
           <div className="floor-tabs">
@@ -869,6 +918,8 @@ export default function AdminClient({
                   key={room.id}
                   className={`room-box admin-drag${room.type === "space" ? " space" : ""}${
                     room.pos_w && room.pos_h ? " sized" : ""
+                  }${room.permanent_occupant ? " locked" : ""}${
+                    room.label_rotated ? " rotated" : ""
                   }`}
                   style={{
                     left: `${room.pos_x}%`,
@@ -878,10 +929,21 @@ export default function AdminClient({
                   }}
                   onPointerDown={(e) => handleDragStart(e, "room", room.id)}
                 >
-                  <span className="name">{room.name}</span>
+                  <span className="room-box-inner">
+                    <span className="name">{room.name}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="room-rotate-handle"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => updateRoomLabelRotated(room, !room.label_rotated)}
+                    title="Otočit text o 90°"
+                  >
+                    ⟳
+                  </button>
                   <span
                     className="room-resize-handle"
-                    onPointerDown={(e) => handleResizeStart(e, room.id)}
+                    onPointerDown={(e) => handleResizeStart(e, room)}
                     title="Přetažením nastavíte velikost místnosti na plánku"
                   />
                 </div>

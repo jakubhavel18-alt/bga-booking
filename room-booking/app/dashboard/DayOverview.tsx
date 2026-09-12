@@ -415,10 +415,12 @@ export default function DayOverview({
             const dragging = draggingRef.current;
             const isDropTarget =
               !!dragging && dragging.moved && dragging.currentRoomId === room.id && dragging.currentRoomId !== dragging.origRoomId;
+            const locked = !!room.permanent_occupant;
             return (
               <div className="overview-row" key={room.id} data-room-id={room.id}>
                 <div className="overview-row-label">
                   <span className="code">{roomCode(rooms, room)}</span>
+                  {locked ? "🔒 " : ""}
                   {room.name}
                 </div>
                 <div
@@ -426,11 +428,17 @@ export default function DayOverview({
                     isDropTarget ? "overview-row-track-dragover" : ""
                   }`}
                   data-room-id={room.id}
-                  onClick={(e) => handleTrackClick(e, room)}
-                  onPointerMove={handleTrackPointerMove}
-                  onPointerUp={handleTrackPointerUp}
-                  onPointerCancel={handleTrackPointerCancel}
+                  onClick={locked ? undefined : (e) => handleTrackClick(e, room)}
+                  onPointerMove={locked ? undefined : handleTrackPointerMove}
+                  onPointerUp={locked ? undefined : handleTrackPointerUp}
+                  onPointerCancel={locked ? undefined : handleTrackPointerCancel}
                 >
+                  {locked ? (
+                    <div className="overview-locked-block" title={`Trvale obsazeno – ${room.permanent_occupant}`}>
+                      🔒 Trvale obsazeno – {room.permanent_occupant}
+                    </div>
+                  ) : (
+                    <>
                   {isToday && <div className="overview-now" style={{ left: `${nowPct}%` }} />}
                   {roomBookings.map((b) => {
                     const left = pct(b.starts_at);
@@ -460,6 +468,8 @@ export default function DayOverview({
                       </div>
                     );
                   })}
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -487,12 +497,30 @@ export default function DayOverview({
               </tr>
             </thead>
             <tbody>
-              {visibleRooms.map((room) => (
+              {visibleRooms.map((room) => {
+                const locked = !!room.permanent_occupant;
+                return (
                 <tr key={room.id}>
                   <td className="week-room-label">
-                    <span className="code">{roomCode(rooms, room)}</span> {room.name}
+                    <span className="code">{roomCode(rooms, room)}</span> {locked ? "🔒 " : ""}
+                    {room.name}
                   </td>
                   {weekDates.map((d) => {
+                    if (locked) {
+                      return (
+                        <td
+                          key={d}
+                          className={`week-cell week-cell-locked ${d === today ? "week-today" : ""}`}
+                        >
+                          <div
+                            className="week-cell-locked-inner"
+                            title={`Trvale obsazeno – ${room.permanent_occupant}`}
+                          >
+                            🔒 {room.permanent_occupant}
+                          </div>
+                        </td>
+                      );
+                    }
                     const dayBookings = bookingsForRoomDay(room.id, d);
                     return (
                       <td
@@ -533,7 +561,8 @@ export default function DayOverview({
                     );
                   })}
                 </tr>
-              ))}
+                );
+              })}
               {visibleRooms.length === 0 && (
                 <tr>
                   <td colSpan={8} style={{ color: "#55617a" }}>

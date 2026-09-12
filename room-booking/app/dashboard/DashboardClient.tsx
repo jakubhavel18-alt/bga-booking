@@ -141,6 +141,44 @@ export default function DashboardClient({
     return rooms.filter((r) => set.has(r.id));
   }, [rooms, restrictedRoomIds]);
 
+  // Co si sám uživatel chce nechat zobrazovat v Denním/Týdenním přehledu
+  // (nad rámec toho, co už mu omezuje admin skupinou místností) — je toho
+  // tam dost, ať si každý může schovat to, co ho nezajímá. Ukládá se jen
+  // v tomhle prohlížeči (localStorage), appka to nikam neposílá.
+  const [overviewShowMeetingRooms, setOverviewShowMeetingRooms] = useState(true);
+  const [overviewShowSpaces, setOverviewShowSpaces] = useState(true);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("bga-overview-filter");
+      if (raw) {
+        const parsed = JSON.parse(raw) as { meeting_room?: boolean; space?: boolean };
+        if (typeof parsed.meeting_room === "boolean") setOverviewShowMeetingRooms(parsed.meeting_room);
+        if (typeof parsed.space === "boolean") setOverviewShowSpaces(parsed.space);
+      }
+    } catch {
+      // localStorage nedostupné (soukromé okno apod.) — appka jede dál s výchozím "zobrazit vše".
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        "bga-overview-filter",
+        JSON.stringify({ meeting_room: overviewShowMeetingRooms, space: overviewShowSpaces })
+      );
+    } catch {
+      // viz výše
+    }
+  }, [overviewShowMeetingRooms, overviewShowSpaces]);
+
+  const overviewRoomIds = useMemo(
+    () =>
+      visibleRooms
+        .filter((r) => (r.type === "meeting_room" ? overviewShowMeetingRooms : overviewShowSpaces))
+        .map((r) => r.id),
+    [visibleRooms, overviewShowMeetingRooms, overviewShowSpaces]
+  );
+
   const meetingRooms = visibleRooms.filter((r) => r.type === "meeting_room");
   const spaceRooms = visibleRooms.filter((r) => r.type !== "meeting_room");
 
@@ -225,7 +263,7 @@ export default function DashboardClient({
               key={room.id}
               className={`room-box ${room.type} ${occupied ? "occupied" : ""} ${
                 room.pos_w && room.pos_h ? "sized" : ""
-              }`}
+              } ${permanent ? "locked" : ""} ${room.label_rotated ? "rotated" : ""}`}
               style={{
                 left: `${room.pos_x}%`,
                 top: `${room.pos_y}%`,
@@ -238,11 +276,13 @@ export default function DashboardClient({
                 setSelectedRoomId(room.id);
               }}
             >
-              <span className="code">{roomCode(rooms, room)}</span>
-              <span className="name">
-                <span className={`status-dot ${permanent ? "locked" : occupied ? "busy" : "free"}`} />
-                {permanent ? "🔒 " : ""}
-                {room.name}
+              <span className="room-box-inner">
+                <span className="code">{roomCode(rooms, room)}</span>
+                <span className="name">
+                  <span className={`status-dot ${permanent ? "locked" : occupied ? "busy" : "free"}`} />
+                  {permanent ? "🔒 " : ""}
+                  {room.name}
+                </span>
               </span>
             </button>
           );
@@ -633,9 +673,29 @@ export default function DashboardClient({
         </div>
       </div>
 
+      <div className="overview-user-filter">
+        <span>Zobrazit v přehledu:</span>
+        <label>
+          <input
+            type="checkbox"
+            checked={overviewShowMeetingRooms}
+            onChange={(e) => setOverviewShowMeetingRooms(e.target.checked)}
+          />{" "}
+          Zasedačky
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={overviewShowSpaces}
+            onChange={(e) => setOverviewShowSpaces(e.target.checked)}
+          />{" "}
+          Stoly / cowork
+        </label>
+      </div>
+
       <DayOverview
         rooms={rooms}
-        visibleRoomIds={restrictedRoomIds}
+        visibleRoomIds={overviewRoomIds}
         currentUserId={profile?.id ?? null}
         isAdmin={profile?.role === "admin"}
         onCreateBooking={handleCreateFromOverview}

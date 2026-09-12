@@ -504,6 +504,19 @@ button {
   border-style: dashed;
 }
 
+/* Trvale obsazené místo — tmavší, sytější červená než běžné "teď
+   obsazeno", ať je na první pohled vidět, že jde o fixní přiřazení, ne
+   jen aktuální rezervaci. Platí pro zasedačky i stoly. */
+.room-box.locked {
+  border-color: var(--color-accent-dark);
+  background: rgba(182, 24, 29, 0.18);
+  border-style: solid;
+}
+
+.room-box.locked:hover {
+  background: rgba(182, 24, 29, 0.28);
+}
+
 /* Místnost roztažená na Půdorysu na skutečnou velikost (pos_w/pos_h
    nastavené) — kartička se nekrčí na minimální šířku, ale vyplní přesně
    ten obdélník, a text je vystředěný přes celou plochu. */
@@ -515,8 +528,43 @@ button {
   align-items: center;
   justify-content: center;
   text-align: center;
-  overflow: hidden;
   padding: 4px 6px;
+}
+
+/* Ořízni přetékající text jen v "klidovém" zobrazení (nástěnka) a jen
+   pokud není otočený o 90° — otočený popisek má na délku textu často
+   celou výšku místnosti, takže by se zbytečně uřezával, a v adminu
+   nesmí být oříznuté rukojeti pro otáčení/zvětšování, které záměrně
+   trochu přesahují mimo rámeček. */
+.room-box.sized:not(.admin-drag):not(.rotated) {
+  overflow: hidden;
+}
+
+/* Zasedačky (uzavřené místnosti se zdmi) roztažené na skutečnou velikost
+   vypadají jako "vybarvená" plocha přesně v hranicích místnosti — ostré
+   rohy místo zaoblených a sytější výplň, ať to vizuálně zapadne do zdí
+   plánku. Stoly (otevřený cowork bez zdí) zůstávají zaoblené a jemnější,
+   protože se nemají k čemu "přichytit". */
+.room-box.meeting_room.sized {
+  border-radius: 2px;
+  background: rgba(227, 30, 36, 0.12);
+}
+
+.room-box.meeting_room.sized:hover {
+  background: rgba(227, 30, 36, 0.24);
+}
+
+/* Trvale obsazená a zároveň "vybarvená" (sized) místnost — tmavší
+   červená musí mít přednost před běžnou meeting_room.sized výplní, proto
+   vyšší specificita (tři třídy + .locked). */
+.room-box.meeting_room.sized.locked,
+.room-box.space.sized.locked {
+  background: rgba(182, 24, 29, 0.22);
+}
+
+.room-box.meeting_room.sized.locked:hover,
+.room-box.space.sized.locked:hover {
+  background: rgba(182, 24, 29, 0.3);
 }
 
 .room-box.sized .code {
@@ -526,6 +574,19 @@ button {
 .room-box.sized .name {
   margin-top: 0;
   line-height: 1.2;
+}
+
+/* Vnitřní obsah kartičky (kód + název) — samostatný element, ať se dá
+   otočit o 90° nezávisle na rámečku/úchytech kartičky samotné. */
+.room-box-inner {
+  display: block;
+  max-width: 100%;
+}
+
+.room-box.rotated .room-box-inner {
+  display: inline-block;
+  transform: rotate(-90deg);
+  white-space: nowrap;
 }
 
 .room-resize-handle {
@@ -543,6 +604,30 @@ button {
   background: var(--color-ink);
   border: 2px solid #f7f5ef;
   cursor: nwse-resize;
+  touch-action: none;
+}
+
+.room-rotate-handle {
+  display: none;
+}
+
+.room-box.admin-drag .room-rotate-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  background: #f7f5ef;
+  border: 1.5px solid var(--color-ink);
+  color: var(--color-ink);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
   touch-action: none;
 }
 
@@ -645,6 +730,28 @@ button {
 .overview-header h2 {
   font-size: 16px;
   margin: 0;
+}
+
+/* Vlastní filtr uživatele nad Denním/Týdenním přehledem — co si chce
+   nechat zobrazovat, uložené jen v jeho prohlížeči. */
+.overview-user-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+  font-size: 13px;
+  color: #55617a;
+}
+
+.overview-user-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #16233d;
+  cursor: pointer;
 }
 
 .overview-nav {
@@ -774,6 +881,21 @@ td.week-today {
   background: #fbf4e8;
 }
 
+/* Trvale obsazená místnost v týdenním přehledu — celá buňka svítí tmavě
+   červeně místo běžných termínů/pomlčky, ať je jasné, že se přes ni
+   nedá nic rezervovat. */
+.week-cell-locked {
+  background: rgba(182, 24, 29, 0.14) !important;
+  cursor: default;
+}
+
+.week-cell-locked-inner {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-accent-dark);
+  line-height: 1.3;
+}
+
 .overview-hours {
   display: flex;
   border-bottom: 1px solid #d7dce6;
@@ -831,6 +953,21 @@ td.week-today {
    puštěním se rezervace přesune právě sem. */
 .overview-row-track-dragover {
   background-color: rgba(227, 30, 36, 0.08);
+}
+
+/* Trvale obsazená místnost v Denním přehledu — celý řádek svítí tmavě
+   červeně přes celou šířku místo normálních termínů, ať je hned jasné,
+   že tahle místnost je mimo běžný kalendář a nedá se rezervovat. */
+.overview-locked-block {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: rgba(182, 24, 29, 0.16);
+  color: var(--color-accent-dark);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .overview-hint {

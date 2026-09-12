@@ -389,6 +389,55 @@ kalendář rezervací (např. stůl, který má někdo dlouhodobě pronajatý).
 3. Uvolnění je stejně jednoduché — smažte text v tom poli a uložte,
    místnost je hned zase normálně volná k rezervaci jako dřív.
 
+## Krok 11 — Doladění editoru půdorysu, kalendáře a trvale obsazených míst (POVINNÉ, jakmile appku aktualizujete)
+
+Doladění na základě zpětné vazby po Kroku 9 a 10 — chování editoru
+rozmístění, vzhled trvale obsazených míst a možnost si v kalendáři
+schovat, co uživatele nezajímá.
+
+1. V Supabase → **SQL Editor** → **New query** spusťte obsah souboru
+   [`supabase/add_label_rotated.sql`](./supabase/add_label_rotated.sql)
+   (jednou) — přidá sloupec pro otočení popisku.
+2. **Roztahování na plánku teď drží pevný roh.** Dřív se místnost při
+   tažení za rožek zvětšovala/zmenšovala rovnoměrně na obě strany od
+   středu, což nepůsobilo přirozeně. Teď zůstává protější roh na místě a
+   roste/zmenšuje se jen ta strana, za kterou taháte — jako běžné
+   přeškálování okna.
+3. **Otočení popisku o 90° („naležato").** U úzkých a vysokých místností
+   se název často nevejde vodorovně. V editoru „Půdorys — rozmístění" má
+   teď každá kartička v levém horním rohu malé kolečko s ⟳ — kliknutím se
+   text uvnitř otočí na výšku. Netýká se pozice/tažení, jen se otáčí text.
+4. **Sloupce „Poloha X/Y" a „Šířka/Výška" v tabulce místností jsou teď
+   schované za přepínačem** „Zobrazit/Skrýt pozice a velikosti" nad
+   tabulkou — běžně se totiž nepoužívají (nastavují se tažením na
+   plánku), a bez nich je tabulka mnohem přehlednější. Tlačítko „Uložit
+   vše" je teď umístěné pod tabulkou, vpravo.
+5. **Trvale obsazené zasedačky/stoly mají sytější tmavě červenou** i ve
+   „vybarveném" (roztaženém) zobrazení na plánku — dřív splývaly s
+   normální (aktuálně obsazenou) barvou.
+6. **Zasedačky vs. stoly na plánku vypadají jinak.** Zasedačky (uzavřené
+   místnosti se zdmi) mají po roztažení na skutečnou velikost ostré rohy
+   a sytější výplň, ať vizuálně zapadnou do zdí plánku. Otevřené stoly/
+   cowork prostory zůstávají zaoblené a jemnější, protože nemají zdi, ke
+   kterým by se „přichytily". Tohle rozlišení používá stávající pole
+   „Typ" (zasedačka/prostor) — žádné nové zaškrtávátko jsme nepřidávali,
+   ať appka zbytečně nepřibývá o další volbu navíc. Pokud by tohle
+   nesedělo s tím, jak to bylo myšlené (např. že chcete rozlišit i
+   „otevřenou" zasedačku bez dveří od běžné), dejte vědět, přidáme
+   samostatné pole.
+7. **Trvale obsazené místo teď svítí i v Denním a Týdenním přehledu** —
+   celý řádek/buňka je tmavě červená s nápisem „🔒 Trvale obsazeno –
+   [jméno]" a nejde do ní kliknout ani přetáhnout rezervaci, stejně jako
+   na plánku a v seznamu místností.
+8. **Uživatel si teď může sám vybrat, co chce v přehledu (kalendáři)
+   vidět** — nad Denním/Týdenním přehledem jsou dvě zaškrtávátka
+   „Zasedačky" a „Stoly / cowork". Platí to navíc k tomu, co uživateli
+   povolíte vy ve skupinách místností (Krok 6d) — nejdřív appka ukáže jen
+   místnosti, které má uživatel povolené, a z těch mu pak jde ještě
+   odškrtnout typ, který ho aktuálně nezajímá. Je to jen jeho osobní
+   nastavení uložené v prohlížeči (ne v databázi) — na jiném zařízení
+   nebo v jiném prohlížeči uvidí zase všechno podle svých práv.
+
 ## Přihlašování — e-mail a heslo
 
 - Appka používá klasické přihlášení e-mailem a heslem, ne odkaz do e-mailu —
