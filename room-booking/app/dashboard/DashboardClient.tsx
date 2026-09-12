@@ -215,8 +215,15 @@ export default function DashboardClient({
           return (
             <button
               key={room.id}
-              className={`room-box ${room.type} ${occupied ? "occupied" : ""}`}
-              style={{ left: `${room.pos_x}%`, top: `${room.pos_y}%` }}
+              className={`room-box ${room.type} ${occupied ? "occupied" : ""} ${
+                room.pos_w && room.pos_h ? "sized" : ""
+              }`}
+              style={{
+                left: `${room.pos_x}%`,
+                top: `${room.pos_y}%`,
+                width: room.pos_w ? `${room.pos_w}%` : undefined,
+                height: room.pos_h ? `${room.pos_h}%` : undefined,
+              }}
               onClick={() => {
                 setFloorplanExpanded(false);
                 setSelectedRoomId(room.id);

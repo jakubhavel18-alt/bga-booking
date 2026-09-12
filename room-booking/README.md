@@ -329,14 +329,24 @@ místnosti v seznamu.
 ## Krok 9 — Skutečný půdorys budovy, po patrech (POVINNÉ, jakmile appku aktualizujete)
 
 Sekce „Půdorys" teď místo prázdné mřížky ukazuje skutečný plánek budovy
-(3 patra — Suterén, 1. patro, 2. patro) na pozadí, s přepínáním pater
+(3 patra — Přízemí, 1. patro, 2. patro) na pozadí, s přepínáním pater
 nahoře. Na mobilu je plánek v malém náhledu, tlačítkem „⤢ Zobrazit půdorys"
 jde otevřít na celou obrazovku, kde jde plánek přiblížit sevřením prstů
 (pinch-to-zoom) — přesně proto, aby šel číst i na malém displeji.
 
-1. V Supabase → **SQL Editor** → **New query** spusťte obsah souboru
-   [`supabase/add_floors.sql`](./supabase/add_floors.sql) (jednou) — přidá
-   sloupec „patro" k místnostem a popiskům.
+Plánek jsme oproti originálnímu exportu trochu upravili, ať sedí k appce:
+zdi jsou v tmavě modré (stejná barva jako zbytek appky) místo černé, dveře
+jsou tenčí a světlejší (ať nepůsobí tak nápadně), schodiště má český popisek
+a odstranili jsme automaticky vygenerovaný anglický text a jedno umyvadlo
+navíc v mezipatře. Plánek je uložený přímo v appce (`public/floorplans/`),
+nikam se nenačítá zvenčí, takže funguje i bez připojení k žádné externí
+službě.
+
+1. V Supabase → **SQL Editor** → **New query** spusťte postupně obsah
+   souborů [`supabase/add_floors.sql`](./supabase/add_floors.sql) a
+   [`supabase/add_room_size.sql`](./supabase/add_room_size.sql) (obojí
+   jednou) — přidají sloupec „patro" k místnostem a popiskům a sloupce pro
+   skutečnou velikost místnosti na plánku.
 2. ⚠️ **Všechny stávající místnosti a popisky mají po tomhle kroku patro
    nezařazené** (appka je dál normálně ukáže v seznamech a jde přes ně
    rezervovat, jen se nezobrazí na žádném konkrétním půdorysu, dokud jim
@@ -348,9 +358,13 @@ jde otevřít na celou obrazovku, kde jde plánek přiblížit sevřením prstů
    správné místo na skutečném plánku (stará pozice byla odhadnutá na
    prázdné mřížce, takže s reálným obrázkem pod ní typicky nesedí a je
    potřeba doladit).
-
-Plánek budovy je uložený přímo v appce (`public/floorplans/`), nikam se
-nenačítá zvenčí, takže funguje i bez připojení k žádné externí službě.
+4. U zasedaček (nebo jakékoli místnosti) navíc jde chytit malý čtvereček
+   v pravém dolním rohu kartičky a roztáhnout ji tak, aby na plánku
+   opravdu odpovídala velikostí skutečné místnosti — místo malé kartičky
+   na jednom bodě se pak ukáže obdélník přes celou plochu dané místnosti.
+   Jde nastavit i přesně čísly ve sloupcích „Šířka %" / „Výška %" v
+   tabulce místností. Neroztažené místnosti (bez šířky/výšky) se dál
+   ukazují jako dřív, jako malá kartička — nic se jim nerozbije.
 
 *(Přemýšleli jsme i nad „crazy" variantou — interaktivní 3D model budovy,
 kde se kliknutím na patro zobrazí jeho plánek. Pro tři patra a tenhle účel

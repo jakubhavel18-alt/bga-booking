@@ -299,7 +299,7 @@ export default function AdminClient({
   useEffect(() => {
     labelsRef.current = labels;
   }, [labels]);
-  const draggingRef = useRef<{ kind: "room" | "label"; id: string } | null>(null);
+  const draggingRef = useRef<{ kind: "room" | "label" | "resize"; id: string } | null>(null);
 
   function clampPct(v: number) {
     return Math.min(100, Math.max(0, v));
@@ -324,6 +324,16 @@ export default function AdminClient({
     draggingRef.current = { kind, id };
   }
 
+  // Úchyt v pravém dolním rohu kartičky místnosti — táhne se zvlášť od
+  // přesunu (stopPropagation), aby se přesun a změna velikosti nebily.
+  // Velikost je symetrická kolem středu (pos_x/pos_y), takže tažením rohu
+  // o vzdálenost d od středu vznikne šířka/výška 2×d.
+  function handleResizeStart(e: ReactPointerEvent<HTMLElement>, id: string) {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    draggingRef.current = { kind: "resize", id };
+  }
+
   function handleDragMove(e: ReactPointerEvent<HTMLElement>) {
     const dragging = draggingRef.current;
     if (!dragging) return;
@@ -332,6 +342,15 @@ export default function AdminClient({
     if (dragging.kind === "room") {
       setRooms((prev) =>
         prev.map((r) => (r.id === dragging.id ? { ...r, pos_x: pos.x, pos_y: pos.y } : r))
+      );
+    } else if (dragging.kind === "resize") {
+      setRooms((prev) =>
+        prev.map((r) => {
+          if (r.id !== dragging.id) return r;
+          const w = Math.min(95, Math.max(4, Math.abs(pos.x - r.pos_x) * 2));
+          const h = Math.min(95, Math.max(4, Math.abs(pos.y - r.pos_y) * 2));
+          return { ...r, pos_w: w, pos_h: h };
+        })
       );
     } else {
       setLabels((prev) =>
@@ -352,6 +371,14 @@ export default function AdminClient({
         await supabase
           .from("rooms")
           .update({ pos_x: room.pos_x, pos_y: room.pos_y })
+          .eq("id", room.id);
+      }
+    } else if (dragging.kind === "resize") {
+      const room = roomsRef.current.find((r) => r.id === dragging.id);
+      if (room) {
+        await supabase
+          .from("rooms")
+          .update({ pos_w: room.pos_w, pos_h: room.pos_h })
           .eq("id", room.id);
       }
     } else {
@@ -506,6 +533,8 @@ export default function AdminClient({
         capacity: room.capacity === null ? null : Number(room.capacity),
         pos_x: Number(room.pos_x),
         pos_y: Number(room.pos_y),
+        pos_w: room.pos_w === null || String(room.pos_w) === "" ? null : Number(room.pos_w),
+        pos_h: room.pos_h === null || String(room.pos_h) === "" ? null : Number(room.pos_h),
         floor: room.floor === null || String(room.floor) === "" ? null : Number(room.floor),
       })
       .eq("id", room.id);
@@ -575,6 +604,8 @@ export default function AdminClient({
                 <th>Kapacita</th>
                 <th>Poloha X %</th>
                 <th>Poloha Y %</th>
+                <th>Šířka %</th>
+                <th>Výška %</th>
                 <th></th>
               </tr>
             </thead>
@@ -631,6 +662,24 @@ export default function AdminClient({
                       style={{ width: 64 }}
                       value={room.pos_y}
                       onChange={(e) => updateRoomField(room.id, "pos_y", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      style={{ width: 64 }}
+                      placeholder="—"
+                      value={room.pos_w ?? ""}
+                      onChange={(e) => updateRoomField(room.id, "pos_w", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      style={{ width: 64 }}
+                      placeholder="—"
+                      value={room.pos_h ?? ""}
+                      onChange={(e) => updateRoomField(room.id, "pos_h", e.target.value)}
                     />
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
@@ -724,10 +773,14 @@ export default function AdminClient({
           <p style={{ fontSize: 13, color: "#55617a", marginBottom: 16 }}>
             Přetáhněte místnost nebo popisek myší (na telefonu prstem) přímo
             na místo v reálném půdorysu daného patra — pozice se uloží hned
-            po puštění. Popisky slouží jen jako volný text bez rezervace
-            (např. „Recepce", „Kuchyňka", „WC"). Místnost nebo popisek se tu
-            zobrazí, jen když má přiřazené tohle patro (viz sloupec „Patro" v
-            tabulce místností výše / u popisků níže).
+            po puštění. U místnosti jde navíc chytit malý čtvereček v pravém
+            dolním rohu kartičky a roztáhnout ji do skutečné velikosti dané
+            zasedačky/stolu na plánku (jde nastavit i přesně čísly ve sloupcích
+            „Šířka %" / „Výška %" v tabulce místností výše). Popisky slouží jen
+            jako volný text bez rezervace (např. „Recepce", „Kuchyňka", „WC").
+            Místnost nebo popisek se tu zobrazí, jen když má přiřazené tohle
+            patro (viz sloupec „Patro" v tabulce místností výše / u popisků
+            níže).
           </p>
 
           <div className="floor-tabs">
@@ -764,11 +817,23 @@ export default function AdminClient({
               .map((room) => (
                 <div
                   key={room.id}
-                  className={`room-box admin-drag${room.type === "space" ? " space" : ""}`}
-                  style={{ left: `${room.pos_x}%`, top: `${room.pos_y}%` }}
+                  className={`room-box admin-drag${room.type === "space" ? " space" : ""}${
+                    room.pos_w && room.pos_h ? " sized" : ""
+                  }`}
+                  style={{
+                    left: `${room.pos_x}%`,
+                    top: `${room.pos_y}%`,
+                    width: room.pos_w ? `${room.pos_w}%` : undefined,
+                    height: room.pos_h ? `${room.pos_h}%` : undefined,
+                  }}
                   onPointerDown={(e) => handleDragStart(e, "room", room.id)}
                 >
                   <span className="name">{room.name}</span>
+                  <span
+                    className="room-resize-handle"
+                    onPointerDown={(e) => handleResizeStart(e, room.id)}
+                    title="Přetažením nastavíte velikost místnosti na plánku"
+                  />
                 </div>
               ))}
             {labels

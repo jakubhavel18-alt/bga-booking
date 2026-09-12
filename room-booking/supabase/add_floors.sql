@@ -1,8 +1,8 @@
 -- ============================================================
--- Přidá patra (Suterén / 1. patro / 2. patro) k místnostem a popiskům
+-- Přidá patra (Přízemí / 1. patro / 2. patro) k místnostem a popiskům
 -- na půdorysu. Spusťte JEDNOU v Supabase: SQL Editor -> New query -> Run.
 --
--- floor: -1 = Suterén, 1 = 1. patro, 2 = 2. patro, NULL = nezařazeno
+-- floor: 0 = Přízemí, 1 = 1. patro, 2 = 2. patro, NULL = nezařazeno
 -- (appka místnost/popisek dál ukáže v seznamech, jen ne na žádném
 -- konkrétním půdorysu, dokud mu patro nenastavíte ve Správě).
 -- ============================================================

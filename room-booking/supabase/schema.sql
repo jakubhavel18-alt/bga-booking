@@ -114,6 +114,12 @@ create table if not exists public.floorplan_labels (
 -- (appka místnost ukáže v seznamech, ale na žádném půdorysu).
 alter table public.rooms add column if not exists floor smallint;
 
+-- Šířka/výška místnosti na půdorysu v % obrázku — NULL = appka ukáže
+-- starou malou kartičku na jednom bodě (dokud ji admin na Půdorysu
+-- neroztáhne úchytem do reálné velikosti dané místnosti).
+alter table public.rooms add column if not exists pos_w numeric;
+alter table public.rooms add column if not exists pos_h numeric;
+
 -- ---------- Pomocná funkce: role přihlášeného uživatele ----------
 create or replace function public.current_role()
 returns user_role as $$

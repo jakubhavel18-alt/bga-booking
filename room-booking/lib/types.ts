@@ -39,6 +39,11 @@ export interface Room {
   capacity: number | null;
   pos_x: number;
   pos_y: number;
+  // Šířka/výška místnosti na půdorysu, v % šířky/výšky obrázku — NULL u
+  // obou = appka ukáže starou malou "kartičku" na jednom bodě (výchozí
+  // stav, dokud admin místnost na Půdorysu neroztáhne do reálné velikosti).
+  pos_w: number | null;
+  pos_h: number | null;
   // Které patro (viz lib/floors.ts) — NULL = nezařazeno (appka místnost
   // ukáže v seznamech, ale na žádném půdorysu, dokud admin patro nenastaví).
   floor: number | null;
