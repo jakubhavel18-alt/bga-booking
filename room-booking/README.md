@@ -372,6 +372,23 @@ by to ale bylo zbytečně složité na výrobu i údržbu bez reálného příno
 navíc — záložky pater dělají přesně to samé jedním klepnutím a jsou
 mnohem jednodušší na pochopení i úpravu do budoucna.)*
 
+## Krok 10 — Trvale obsazené místo (POVINNÉ, jakmile appku aktualizujete)
+
+Pro fixní místo přiřazené natrvalo konkrétnímu člověku/firmě, mimo běžný
+kalendář rezervací (např. stůl, který má někdo dlouhodobě pronajatý).
+
+1. V Supabase → **SQL Editor** → **New query** spusťte obsah souboru
+   [`supabase/add_permanent_occupant.sql`](./supabase/add_permanent_occupant.sql)
+   (jednou) — přidá sloupec k místnostem.
+2. Ve **Správě** v tabulce „Místnosti a stoly" je nový sloupec „Trvale
+   obsazeno (kým)" — stačí do něj napsat jméno/firmu a uložit (jde i přes
+   „Uložit vše"). Appka od té chvíle tuhle místnost/stůl všude ukáže jako
+   obsazenou (🔒 v seznamu i na půdorysu) a nedovolí přes ni založit novou
+   rezervaci — kdo na ni klikne, uvidí jen hlášku, kdo/co ji má, bez
+   rezervačního formuláře.
+3. Uvolnění je stejně jednoduché — smažte text v tom poli a uložte,
+   místnost je hned zase normálně volná k rezervaci jako dřív.
+
 ## Přihlašování — e-mail a heslo
 
 - Appka používá klasické přihlášení e-mailem a heslem, ne odkaz do e-mailu —

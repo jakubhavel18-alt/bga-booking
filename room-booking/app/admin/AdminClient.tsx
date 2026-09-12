@@ -521,23 +521,39 @@ export default function AdminClient({
     );
   }
 
+  function roomUpdatePayload(room: Room) {
+    return {
+      name: room.name,
+      type: room.type,
+      description: room.description,
+      capacity: room.capacity === null ? null : Number(room.capacity),
+      pos_x: Number(room.pos_x),
+      pos_y: Number(room.pos_y),
+      pos_w: room.pos_w === null || String(room.pos_w) === "" ? null : Number(room.pos_w),
+      pos_h: room.pos_h === null || String(room.pos_h) === "" ? null : Number(room.pos_h),
+      floor: room.floor === null || String(room.floor) === "" ? null : Number(room.floor),
+      permanent_occupant: room.permanent_occupant?.trim() ? room.permanent_occupant.trim() : null,
+    };
+  }
+
   async function saveRoom(room: Room) {
     setBusy(true);
     const supabase = createClient();
-    await supabase
-      .from("rooms")
-      .update({
-        name: room.name,
-        type: room.type,
-        description: room.description,
-        capacity: room.capacity === null ? null : Number(room.capacity),
-        pos_x: Number(room.pos_x),
-        pos_y: Number(room.pos_y),
-        pos_w: room.pos_w === null || String(room.pos_w) === "" ? null : Number(room.pos_w),
-        pos_h: room.pos_h === null || String(room.pos_h) === "" ? null : Number(room.pos_h),
-        floor: room.floor === null || String(room.floor) === "" ? null : Number(room.floor),
-      })
-      .eq("id", room.id);
+    await supabase.from("rooms").update(roomUpdatePayload(room)).eq("id", room.id);
+    setBusy(false);
+    await refresh();
+  }
+
+  // Uloží najednou všechny místnosti v tabulce, ne jen jednu po druhé —
+  // pro případ, že admin přepíše víc řádků a chce to odeslat jedním klikem.
+  async function saveAllRooms() {
+    setBusy(true);
+    const supabase = createClient();
+    await Promise.all(
+      rooms.map((room) =>
+        supabase.from("rooms").update(roomUpdatePayload(room)).eq("id", room.id)
+      )
+    );
     setBusy(false);
     await refresh();
   }
@@ -593,7 +609,27 @@ export default function AdminClient({
       <Header profile={profile} />
       <div className="admin-wrap">
         <section className="admin-section">
-          <h2 className="font-display section-title">Místnosti a stoly</h2>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            <h2 className="font-display section-title" style={{ marginBottom: 0 }}>
+              Místnosti a stoly
+            </h2>
+            <button className="btn primary" disabled={busy} onClick={saveAllRooms}>
+              Uložit vše
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: "#55617a", margin: "6px 0 12px" }}>
+            Klidně přepište víc řádků najednou a uložte je jedním klikem na
+            „Uložit vše" — tlačítko „Uložit" u jednotlivého řádku pořád jde
+            použít, když chcete odeslat jen tu jednu místnost.
+          </p>
           <div className="table-scroll">
           <table className="admin-table">
             <thead>
@@ -606,6 +642,7 @@ export default function AdminClient({
                 <th>Poloha Y %</th>
                 <th>Šířka %</th>
                 <th>Výška %</th>
+                <th>Trvale obsazeno (kým)</th>
                 <th></th>
               </tr>
             </thead>
@@ -680,6 +717,15 @@ export default function AdminClient({
                       placeholder="—"
                       value={room.pos_h ?? ""}
                       onChange={(e) => updateRoomField(room.id, "pos_h", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      style={{ width: 140 }}
+                      placeholder="— volné —"
+                      value={room.permanent_occupant ?? ""}
+                      onChange={(e) => updateRoomField(room.id, "permanent_occupant", e.target.value)}
                     />
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
@@ -764,7 +810,11 @@ export default function AdminClient({
           <p style={{ fontSize: 12, color: "#55617a", marginTop: 8 }}>
             Poloha X/Y určuje, kde se místnost zobrazí na půdorysu (0–100 %
             zleva doprava a shora dolů). Vyzkoušejte na Půdorysu a hodnoty
-            doladíte.
+            doladíte. Sloupec „Trvale obsazeno (kým)" slouží pro fixní místo
+            přiřazené konkrétnímu člověku/firmě natrvalo, mimo běžný
+            kalendář — stačí vyplnit jméno/firmu a appka přes tuhle místnost
+            už nedovolí založit novou rezervaci; smazáním textu je místnost
+            zase normálně volná.
           </p>
         </section>
 

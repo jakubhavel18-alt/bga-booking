@@ -120,6 +120,11 @@ alter table public.rooms add column if not exists floor smallint;
 alter table public.rooms add column if not exists pos_w numeric;
 alter table public.rooms add column if not exists pos_h numeric;
 
+-- Trvale obsazeno (jméno/firma) — když je vyplněné, appka místnost ukáže
+-- jako obsazenou a nejde přes ni založit novou rezervaci. NULL/prázdné =
+-- normálně volné k rezervaci jako dřív.
+alter table public.rooms add column if not exists permanent_occupant text;
+
 -- ---------- Pomocná funkce: role přihlášeného uživatele ----------
 create or replace function public.current_role()
 returns user_role as $$

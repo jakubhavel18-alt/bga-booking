@@ -195,6 +195,13 @@ export default function DashboardClient({
     );
   }
 
+  // 🔒 = trvale obsazené (fixní místo, mimo kalendář), 🔶 = teď obsazené
+  // běžnou rezervací, 🟢 = volné.
+  function occupancyEmoji(room: Room) {
+    if (room.permanent_occupant) return "🔒";
+    return isOccupiedNow(room.id) ? "🔶" : "🟢";
+  }
+
   // Sdílené vykreslení půdorysu (reálný obrázek patra + místnosti + volné
   // popisky) — používá se jak v normální velikosti na stránce, tak
   // zvětšené přes celou obrazovku (hlavně pro telefon, kde je normální
@@ -211,7 +218,8 @@ export default function DashboardClient({
           draggable={false}
         />
         {floorRooms.map((room) => {
-          const occupied = isOccupiedNow(room.id);
+          const permanent = !!room.permanent_occupant;
+          const occupied = permanent || isOccupiedNow(room.id);
           return (
             <button
               key={room.id}
@@ -224,6 +232,7 @@ export default function DashboardClient({
                 width: room.pos_w ? `${room.pos_w}%` : undefined,
                 height: room.pos_h ? `${room.pos_h}%` : undefined,
               }}
+              title={permanent ? `Trvale obsazeno – ${room.permanent_occupant}` : undefined}
               onClick={() => {
                 setFloorplanExpanded(false);
                 setSelectedRoomId(room.id);
@@ -231,7 +240,8 @@ export default function DashboardClient({
             >
               <span className="code">{roomCode(rooms, room)}</span>
               <span className="name">
-                <span className={`status-dot ${occupied ? "busy" : "free"}`} />
+                <span className={`status-dot ${permanent ? "locked" : occupied ? "busy" : "free"}`} />
+                {permanent ? "🔒 " : ""}
                 {room.name}
               </span>
             </button>
@@ -290,6 +300,10 @@ export default function DashboardClient({
   async function handleBook(e: FormEvent) {
     e.preventDefault();
     if (!selectedRoomId || !profile) return;
+    // Pojistka navíc — formulář se u trvale obsazené místnosti ani
+    // nevykresluje, ale kdyby se sem přesto dostalo volání (např. přes
+    // Denní přehled), rezervaci to i tak odmítne.
+    if (selectedRoom?.permanent_occupant) return;
     setFormError(null);
     setFormNotice(null);
 
@@ -584,7 +598,7 @@ export default function DashboardClient({
               >
                 <span className="code">{roomCode(rooms, room)} · zasedačka</span>
                 <div className="name">
-                  {isOccupiedNow(room.id) ? "🔶" : "🟢"} {room.name}
+                  {occupancyEmoji(room)} {room.name}
                 </div>
               </button>
             ))}
@@ -609,7 +623,7 @@ export default function DashboardClient({
                   >
                     <span className="code">{roomCode(rooms, room)} · stůl</span>
                     <div className="name">
-                      {isOccupiedNow(room.id) ? "🔶" : "🟢"} {room.name}
+                      {occupancyEmoji(room)} {room.name}
                     </div>
                   </button>
                 ))}
@@ -649,6 +663,14 @@ export default function DashboardClient({
             {/* Formulář je v DOM první — u QR/last-minute rezervace ze
                 dveří ho tak má člověk rovnou pod hlavičkou, bez rolování
                 přes seznam obsazenosti. */}
+            {selectedRoom.permanent_occupant ? (
+              <p className="viewer-notice">
+                🔒 Trvale obsazeno — {selectedRoom.permanent_occupant}. Tahle
+                místnost/stůl je vyhrazená natrvalo a nejde přes appku
+                rezervovat. Pro uvolnění se ozvěte správci.
+              </p>
+            ) : (
+              <>
             <h3>Nová rezervace</h3>
             {canBook ? (
               <form className="booking-form" onSubmit={handleBook}>
@@ -741,6 +763,8 @@ export default function DashboardClient({
                 (nebo si založte účet) — trvá to chvilku a appka vás vrátí
                 rovnou zpátky sem.
               </p>
+            )}
+              </>
             )}
 
             <h3>Nadcházející rezervace</h3>

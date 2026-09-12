@@ -574,6 +574,9 @@ button {
 .status-dot.busy {
   background: #b8721e;
 }
+.status-dot.locked {
+  background: var(--color-ink);
+}
 
 /* Volné popisky na půdorysu (např. "Recepce", "Kuchyňka") — jen text,
    nejde na ně kliknout ani rezervovat. */

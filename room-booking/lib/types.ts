@@ -47,6 +47,11 @@ export interface Room {
   // Které patro (viz lib/floors.ts) — NULL = nezařazeno (appka místnost
   // ukáže v seznamech, ale na žádném půdorysu, dokud admin patro nenastaví).
   floor: number | null;
+  // Trvale obsazeno (jméno/firma) — když je vyplněné, appka místnost
+  // ukáže jako obsazenou a nejde přes ni založit novou rezervaci (admin
+  // pole zase vyprázdní, až se místo uvolní). NULL/prázdné = normálně
+  // volné k rezervaci jako dřív.
+  permanent_occupant: string | null;
   created_at: string;
 }
 
