@@ -25,6 +25,9 @@ export interface FloorplanLabel {
   text: string;
   pos_x: number;
   pos_y: number;
+  // Které patro (viz lib/floors.ts) — NULL = nezařazeno, na žádném
+  // konkrétním půdorysu se nezobrazí.
+  floor: number | null;
   created_at: string;
 }
 
@@ -36,6 +39,9 @@ export interface Room {
   capacity: number | null;
   pos_x: number;
   pos_y: number;
+  // Které patro (viz lib/floors.ts) — NULL = nezařazeno (appka místnost
+  // ukáže v seznamech, ale na žádném půdorysu, dokud admin patro nenastaví).
+  floor: number | null;
   created_at: string;
 }
 

@@ -326,6 +326,38 @@ místnosti v seznamu.
   samotné „Zarezervovat" ho appka pošle na přihlášení a po přihlášení ho
   vrátí přesně zpátky na stejnou místnost.
 
+## Krok 9 — Skutečný půdorys budovy, po patrech (POVINNÉ, jakmile appku aktualizujete)
+
+Sekce „Půdorys" teď místo prázdné mřížky ukazuje skutečný plánek budovy
+(3 patra — Suterén, 1. patro, 2. patro) na pozadí, s přepínáním pater
+nahoře. Na mobilu je plánek v malém náhledu, tlačítkem „⤢ Zobrazit půdorys"
+jde otevřít na celou obrazovku, kde jde plánek přiblížit sevřením prstů
+(pinch-to-zoom) — přesně proto, aby šel číst i na malém displeji.
+
+1. V Supabase → **SQL Editor** → **New query** spusťte obsah souboru
+   [`supabase/add_floors.sql`](./supabase/add_floors.sql) (jednou) — přidá
+   sloupec „patro" k místnostem a popiskům.
+2. ⚠️ **Všechny stávající místnosti a popisky mají po tomhle kroku patro
+   nezařazené** (appka je dál normálně ukáže v seznamech a jde přes ně
+   rezervovat, jen se nezobrazí na žádném konkrétním půdorysu, dokud jim
+   patro nepřiřadíte). U každé místnosti/prostoru a popisku ve **Správě**
+   (tabulka místností i tabulka popisků, a formuláře pro nové) teď je
+   sloupec/pole „Patro" — nastavte ho na skutečné patro dané místnosti.
+3. Po nastavení patra se místnost/popisek objeví v editoru „Půdorys —
+   rozmístění" na příslušné záložce patra — tam ho pak přetáhněte na
+   správné místo na skutečném plánku (stará pozice byla odhadnutá na
+   prázdné mřížce, takže s reálným obrázkem pod ní typicky nesedí a je
+   potřeba doladit).
+
+Plánek budovy je uložený přímo v appce (`public/floorplans/`), nikam se
+nenačítá zvenčí, takže funguje i bez připojení k žádné externí službě.
+
+*(Přemýšleli jsme i nad „crazy" variantou — interaktivní 3D model budovy,
+kde se kliknutím na patro zobrazí jeho plánek. Pro tři patra a tenhle účel
+by to ale bylo zbytečně složité na výrobu i údržbu bez reálného přínosu
+navíc — záložky pater dělají přesně to samé jedním klepnutím a jsou
+mnohem jednodušší na pochopení i úpravu do budoucna.)*
+
 ## Přihlašování — e-mail a heslo
 
 - Appka používá klasické přihlášení e-mailem a heslem, ne odkaz do e-mailu —

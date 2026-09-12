@@ -105,8 +105,14 @@ create table if not exists public.floorplan_labels (
   text text not null,
   pos_x numeric not null default 50, -- pozice na půdorysu, 0-100 %
   pos_y numeric not null default 50,
+  -- Které patro (viz lib/floors.ts ve appce) — NULL = nezařazeno.
+  floor smallint,
   created_at timestamptz not null default now()
 );
+
+-- Ke kterému patru reálného půdorysu místnost patří — NULL = nezařazeno
+-- (appka místnost ukáže v seznamech, ale na žádném půdorysu).
+alter table public.rooms add column if not exists floor smallint;
 
 -- ---------- Pomocná funkce: role přihlášeného uživatele ----------
 create or replace function public.current_role()

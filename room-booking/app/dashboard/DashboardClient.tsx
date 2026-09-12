@@ -6,6 +6,7 @@ import Header from "@/app/components/Header";
 import DayOverview from "./DayOverview";
 import type { Profile, Room, Booking, FloorplanLabel } from "@/lib/types";
 import { addDaysLocalStr, toLocalDateStr, todayLocalStr } from "@/lib/date";
+import { FLOORS } from "@/lib/floors";
 
 // Zaokrouhlí čas nahoru na nejbližších 5 minut — pro "rezervovat od teď".
 function roundedTime(date: Date) {
@@ -145,6 +146,27 @@ export default function DashboardClient({
 
   const selectedRoom = visibleRooms.find((r) => r.id === selectedRoomId) ?? null;
 
+  // Patro, které se zrovna ukazuje na půdorysu — výchozí je první patro,
+  // na kterém pro tohohle uživatele vůbec nějaká místnost je.
+  const [selectedFloor, setSelectedFloor] = useState<number>(() => {
+    const firstWithRoom = FLOORS.find((f) => rooms.some((r) => r.floor === f.value));
+    return (firstWithRoom ?? FLOORS[0]).value;
+  });
+  const [floorplanExpanded, setFloorplanExpanded] = useState(false);
+  // Stejný "uzamkni scroll pod tím" trik jako u panelu místnosti/Mých
+  // rezervací — zvětšený půdorys je taky přes celou obrazovku na mobilu.
+  useEffect(() => {
+    if (!floorplanExpanded) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [floorplanExpanded]);
+  const floorRooms = visibleRooms.filter((r) => r.floor === selectedFloor);
+  const floorLabels = labels.filter((l) => l.floor === selectedFloor);
+  const currentFloorInfo = FLOORS.find((f) => f.value === selectedFloor) ?? FLOORS[0];
+
   const roomBookings = useMemo(() => {
     if (!selectedRoomId) return [];
     return bookings
@@ -170,6 +192,54 @@ export default function DashboardClient({
         b.room_id === roomId &&
         new Date(b.starts_at).getTime() <= now &&
         new Date(b.ends_at).getTime() > now
+    );
+  }
+
+  // Sdílené vykreslení půdorysu (reálný obrázek patra + místnosti + volné
+  // popisky) — používá se jak v normální velikosti na stránce, tak
+  // zvětšené přes celou obrazovku (hlavně pro telefon, kde je normální
+  // náhled na čtení moc malý).
+  function renderFloorplanContent() {
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          key={currentFloorInfo.value}
+          src={currentFloorInfo.svg}
+          alt={`Půdorys — ${currentFloorInfo.label}`}
+          className="floorplan-bg"
+          draggable={false}
+        />
+        {floorRooms.map((room) => {
+          const occupied = isOccupiedNow(room.id);
+          return (
+            <button
+              key={room.id}
+              className={`room-box ${room.type} ${occupied ? "occupied" : ""}`}
+              style={{ left: `${room.pos_x}%`, top: `${room.pos_y}%` }}
+              onClick={() => {
+                setFloorplanExpanded(false);
+                setSelectedRoomId(room.id);
+              }}
+            >
+              <span className="code">{roomCode(rooms, room)}</span>
+              <span className="name">
+                <span className={`status-dot ${occupied ? "busy" : "free"}`} />
+                {room.name}
+              </span>
+            </button>
+          );
+        })}
+        {floorLabels.map((label) => (
+          <span
+            key={label.id}
+            className="floorplan-label"
+            style={{ left: `${label.pos_x}%`, top: `${label.pos_y}%` }}
+          >
+            {label.text}
+          </span>
+        ))}
+      </>
     );
   }
 
@@ -465,33 +535,36 @@ export default function DashboardClient({
       )}
 
       <div className="floorplan-wrap">
-        <div className="floorplan">
-          {visibleRooms.map((room) => {
-            const occupied = isOccupiedNow(room.id);
-            return (
+        <div className="floorplan-toolbar">
+          <div className="floor-tabs">
+            {FLOORS.map((f) => (
               <button
-                key={room.id}
-                className={`room-box ${room.type} ${occupied ? "occupied" : ""}`}
-                style={{ left: `${room.pos_x}%`, top: `${room.pos_y}%` }}
-                onClick={() => setSelectedRoomId(room.id)}
+                key={f.value}
+                type="button"
+                className={`btn floor-tab ${selectedFloor === f.value ? "active" : ""}`}
+                onClick={() => setSelectedFloor(f.value)}
               >
-                <span className="code">{roomCode(rooms, room)}</span>
-                <span className="name">
-                  <span className={`status-dot ${occupied ? "busy" : "free"}`} />
-                  {room.name}
-                </span>
+                {f.label}
               </button>
-            );
-          })}
-          {labels.map((label) => (
-            <span
-              key={label.id}
-              className="floorplan-label"
-              style={{ left: `${label.pos_x}%`, top: `${label.pos_y}%` }}
-            >
-              {label.text}
-            </span>
-          ))}
+            ))}
+          </div>
+          <button
+            type="button"
+            className="btn floorplan-expand-btn"
+            onClick={() => setFloorplanExpanded(true)}
+            aria-label="Zobrazit půdorys na celou obrazovku"
+          >
+            ⤢ Zobrazit půdorys
+          </button>
+        </div>
+
+        <div className="floorplan has-bg" style={{ aspectRatio: currentFloorInfo.aspect }}>
+          {renderFloorplanContent()}
+          {floorRooms.length === 0 && (
+            <p className="floorplan-empty-hint">
+              Na tomhle patře zatím nejsou žádné místnosti k rezervaci.
+            </p>
+          )}
         </div>
 
         <div className="room-list-mobile">
@@ -707,6 +780,45 @@ export default function DashboardClient({
               </p>
             )}
             {myBookings.map((b) => renderBookingRow(b, true))}
+          </div>
+        </div>
+      )}
+
+      {floorplanExpanded && (
+        <div className="panel-overlay floorplan-modal-overlay" onClick={() => setFloorplanExpanded(false)}>
+          <div className="floorplan-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="floorplan-modal-head">
+              <div className="floor-tabs">
+                {FLOORS.map((f) => (
+                  <button
+                    key={f.value}
+                    type="button"
+                    className={`btn floor-tab ${selectedFloor === f.value ? "active" : ""}`}
+                    onClick={() => setSelectedFloor(f.value)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="panel-close"
+                onClick={() => setFloorplanExpanded(false)}
+                aria-label="Zavřít"
+              >
+                ×
+              </button>
+            </div>
+            <div className="floorplan-modal-scroll">
+              <div
+                className="floorplan has-bg floorplan-modal-canvas"
+                style={{ aspectRatio: currentFloorInfo.aspect }}
+              >
+                {renderFloorplanContent()}
+              </div>
+            </div>
+            <p className="floorplan-modal-hint">
+              Pro přiblížení použijte gesto přiblížení prsty (pinch-to-zoom).
+            </p>
           </div>
         </div>
       )}

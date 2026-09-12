@@ -356,6 +356,31 @@ button {
   margin: 0 auto;
 }
 
+.floorplan-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.floor-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.floor-tab.active {
+  background: var(--color-ink);
+  color: #f7f5ef;
+  border-color: var(--color-ink);
+}
+
+.floorplan-expand-btn {
+  white-space: nowrap;
+}
+
 .floorplan {
   position: relative;
   width: 100%;
@@ -369,31 +394,110 @@ button {
   overflow: hidden;
 }
 
+/* Skutečný půdorys (SVG obrázek daného patra) místo prázdné mřížky. */
+.floorplan.has-bg {
+  background-image: none;
+}
+
+.floorplan-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+
+.floorplan-empty-hint {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #55617a;
+  font-size: 13px;
+  padding: 0 16px;
+  text-align: center;
+}
+
+/* ---------- Zvětšený půdorys (hlavně pro telefon) ---------- */
+/* Kombinovaný selektor (ne jen .floorplan-modal-overlay), ať to přebije
+   .panel-overlay bez ohledu na pořadí pravidel v souboru — přes celou
+   obrazovku, ne jako postranní panel. */
+.panel-overlay.floorplan-modal-overlay {
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+}
+
+.floorplan-modal {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.floorplan-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #d7dce6;
+  flex-wrap: wrap;
+}
+
+.floorplan-modal-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.floorplan-modal-canvas {
+  width: 100%;
+  min-width: 900px;
+  border-radius: 0;
+}
+
+.floorplan-modal-hint {
+  text-align: center;
+  font-size: 12px;
+  color: #55617a;
+  padding: 8px 16px 14px;
+}
+
 .room-box {
   position: absolute;
+  z-index: 1;
   transform: translate(-50%, -50%);
   min-width: 96px;
   padding: 8px 10px;
   border-radius: 6px;
   border: 1.5px solid #E31E24;
-  background: rgba(227, 30, 36, 0.06);
+  background: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .room-box:hover {
-  background: rgba(227, 30, 36, 0.12);
+  background: rgba(227, 30, 36, 0.16);
   box-shadow: 0 2px 6px rgba(22, 35, 61, 0.12);
 }
 
 .room-box.space {
   border-color: #3e7c74;
-  background: rgba(62, 124, 116, 0.07);
 }
 
 .room-box.space:hover {
-  background: rgba(62, 124, 116, 0.14);
+  background: rgba(62, 124, 116, 0.16);
 }
 
 .room-box.occupied {
@@ -433,6 +537,7 @@ button {
    nejde na ně kliknout ani rezervovat. */
 .floorplan-label {
   position: absolute;
+  z-index: 1;
   transform: translate(-50%, -50%);
   font-size: 12px;
   font-weight: 600;
@@ -440,6 +545,9 @@ button {
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
 /* Admin editor pro rozmístění na půdorysu — místnosti a popisky jdou

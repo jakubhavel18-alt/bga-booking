@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
+import { FLOORS } from "@/lib/floors";
 import type {
   Profile,
   Room,
@@ -221,8 +222,12 @@ export default function AdminClient({
     capacity: "",
     pos_x: "50",
     pos_y: "50",
+    floor: "",
   });
   const [busy, setBusy] = useState(false);
+  // Které patro se zrovna edituje v sekci "Půdorys — rozmístění".
+  const [editorFloor, setEditorFloor] = useState<number>(FLOORS[1].value);
+  const [newLabelFloor, setNewLabelFloor] = useState<string>(String(FLOORS[1].value));
 
   const [hoursMonth, setHoursMonth] = useState(currentMonth);
   const [monthlyBookings, setMonthlyBookings] = useState<
@@ -373,12 +378,22 @@ export default function AdminClient({
     if (!newLabelText.trim()) return;
     setBusy(true);
     const supabase = createClient();
-    await supabase
-      .from("floorplan_labels")
-      .insert({ text: newLabelText.trim(), pos_x: 50, pos_y: 50 });
+    await supabase.from("floorplan_labels").insert({
+      text: newLabelText.trim(),
+      pos_x: 50,
+      pos_y: 50,
+      floor: newLabelFloor === "" ? null : Number(newLabelFloor),
+    });
     setNewLabelText("");
     setBusy(false);
     await refresh();
+  }
+
+  async function updateLabelFloor(label: FloorplanLabel, value: string) {
+    const floor = value === "" ? null : Number(value);
+    setLabels((prev) => prev.map((l) => (l.id === label.id ? { ...l, floor } : l)));
+    const supabase = createClient();
+    await supabase.from("floorplan_labels").update({ floor }).eq("id", label.id);
   }
 
   async function deleteLabel(id: string) {
@@ -491,6 +506,7 @@ export default function AdminClient({
         capacity: room.capacity === null ? null : Number(room.capacity),
         pos_x: Number(room.pos_x),
         pos_y: Number(room.pos_y),
+        floor: room.floor === null || String(room.floor) === "" ? null : Number(room.floor),
       })
       .eq("id", room.id);
     setBusy(false);
@@ -514,8 +530,9 @@ export default function AdminClient({
       capacity: newRoom.capacity ? Number(newRoom.capacity) : null,
       pos_x: Number(newRoom.pos_x),
       pos_y: Number(newRoom.pos_y),
+      floor: newRoom.floor === "" ? null : Number(newRoom.floor),
     });
-    setNewRoom({ name: "", type: "meeting_room", capacity: "", pos_x: "50", pos_y: "50" });
+    setNewRoom({ name: "", type: "meeting_room", capacity: "", pos_x: "50", pos_y: "50", floor: "" });
     setBusy(false);
     await refresh();
   }
@@ -554,6 +571,7 @@ export default function AdminClient({
               <tr>
                 <th>Název</th>
                 <th>Typ</th>
+                <th>Patro</th>
                 <th>Kapacita</th>
                 <th>Poloha X %</th>
                 <th>Poloha Y %</th>
@@ -576,6 +594,19 @@ export default function AdminClient({
                     >
                       <option value="meeting_room">Zasedačka</option>
                       <option value="space">Stůl</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={room.floor === null ? "" : String(room.floor)}
+                      onChange={(e) => updateRoomField(room.id, "floor", e.target.value)}
+                    >
+                      <option value="">Bez patra</option>
+                      {FLOORS.map((f) => (
+                        <option key={f.value} value={f.value}>
+                          {f.label}
+                        </option>
+                      ))}
                     </select>
                   </td>
                   <td>
@@ -638,6 +669,20 @@ export default function AdminClient({
               </select>
             </div>
             <div className="field">
+              <label>Patro</label>
+              <select
+                value={newRoom.floor}
+                onChange={(e) => setNewRoom({ ...newRoom, floor: e.target.value })}
+              >
+                <option value="">Bez patra</option>
+                {FLOORS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
               <label>Kapacita</label>
               <input
                 type="number"
@@ -678,44 +723,81 @@ export default function AdminClient({
           <h2 className="font-display section-title">Půdorys — rozmístění</h2>
           <p style={{ fontSize: 13, color: "#55617a", marginBottom: 16 }}>
             Přetáhněte místnost nebo popisek myší (na telefonu prstem) přímo
-            na místo v půdorysu — pozice se uloží hned po puštění. Popisky
-            slouží jen jako volný text bez rezervace (např. „Recepce",
-            „Kuchyňka", „WC").
+            na místo v reálném půdorysu daného patra — pozice se uloží hned
+            po puštění. Popisky slouží jen jako volný text bez rezervace
+            (např. „Recepce", „Kuchyňka", „WC"). Místnost nebo popisek se tu
+            zobrazí, jen když má přiřazené tohle patro (viz sloupec „Patro" v
+            tabulce místností výše / u popisků níže).
           </p>
+
+          <div className="floor-tabs">
+            {FLOORS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                className={`btn floor-tab ${editorFloor === f.value ? "active" : ""}`}
+                onClick={() => setEditorFloor(f.value)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
           <div
             ref={floorplanEditorRef}
-            className="floorplan admin-floorplan-editor"
+            className="floorplan admin-floorplan-editor has-bg"
+            style={{ aspectRatio: FLOORS.find((f) => f.value === editorFloor)?.aspect }}
             onPointerMove={handleDragMove}
             onPointerUp={handleDragEnd}
             onPointerCancel={handleDragEnd}
           >
-            {rooms.map((room) => (
-              <div
-                key={room.id}
-                className={`room-box admin-drag${room.type === "space" ? " space" : ""}`}
-                style={{ left: `${room.pos_x}%`, top: `${room.pos_y}%` }}
-                onPointerDown={(e) => handleDragStart(e, "room", room.id)}
-              >
-                <span className="name">{room.name}</span>
-              </div>
-            ))}
-            {labels.map((label) => (
-              <div
-                key={label.id}
-                className="floorplan-label admin-drag-label"
-                style={{ left: `${label.pos_x}%`, top: `${label.pos_y}%` }}
-                onPointerDown={(e) => handleDragStart(e, "label", label.id)}
-              >
-                {label.text || "(bez textu)"}
-              </div>
-            ))}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={editorFloor}
+              src={FLOORS.find((f) => f.value === editorFloor)?.svg}
+              alt=""
+              className="floorplan-bg"
+              draggable={false}
+            />
+            {rooms
+              .filter((room) => room.floor === editorFloor)
+              .map((room) => (
+                <div
+                  key={room.id}
+                  className={`room-box admin-drag${room.type === "space" ? " space" : ""}`}
+                  style={{ left: `${room.pos_x}%`, top: `${room.pos_y}%` }}
+                  onPointerDown={(e) => handleDragStart(e, "room", room.id)}
+                >
+                  <span className="name">{room.name}</span>
+                </div>
+              ))}
+            {labels
+              .filter((label) => label.floor === editorFloor)
+              .map((label) => (
+                <div
+                  key={label.id}
+                  className="floorplan-label admin-drag-label"
+                  style={{ left: `${label.pos_x}%`, top: `${label.pos_y}%` }}
+                  onPointerDown={(e) => handleDragStart(e, "label", label.id)}
+                >
+                  {label.text || "(bez textu)"}
+                </div>
+              ))}
           </div>
+          {rooms.some((r) => r.floor === null) && (
+            <p style={{ fontSize: 12, color: "#55617a", marginTop: 8 }}>
+              {rooms.filter((r) => r.floor === null).length} místností nemá
+              přiřazené patro, takže se tu zatím neukazují — nastavte jim ho v
+              tabulce místností výše.
+            </p>
+          )}
 
           <div className="table-scroll" style={{ marginTop: 16 }}>
             <table className="admin-table">
               <thead>
                 <tr>
                   <th>Text popisku</th>
+                  <th>Patro</th>
                   <th>Poloha X %</th>
                   <th>Poloha Y %</th>
                   <th></th>
@@ -731,6 +813,19 @@ export default function AdminClient({
                         onBlur={() => saveLabelText(label)}
                       />
                     </td>
+                    <td>
+                      <select
+                        value={label.floor === null ? "" : String(label.floor)}
+                        onChange={(e) => updateLabelFloor(label, e.target.value)}
+                      >
+                        <option value="">Bez patra</option>
+                        {FLOORS.map((f) => (
+                          <option key={f.value} value={f.value}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="mono">{Math.round(label.pos_x)}</td>
                     <td className="mono">{Math.round(label.pos_y)}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
@@ -742,7 +837,7 @@ export default function AdminClient({
                 ))}
                 {labels.length === 0 && (
                   <tr>
-                    <td colSpan={4} style={{ color: "#55617a" }}>
+                    <td colSpan={5} style={{ color: "#55617a" }}>
                       Zatím žádný popisek.
                     </td>
                   </tr>
@@ -759,6 +854,17 @@ export default function AdminClient({
                 onChange={(e) => setNewLabelText(e.target.value)}
                 placeholder="např. Recepce"
               />
+            </div>
+            <div className="field">
+              <label>Patro</label>
+              <select value={newLabelFloor} onChange={(e) => setNewLabelFloor(e.target.value)}>
+                <option value="">Bez patra</option>
+                {FLOORS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <button className="btn primary" disabled={busy} onClick={addLabel}>
               Přidat popisek
